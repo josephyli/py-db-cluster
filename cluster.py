@@ -1,37 +1,29 @@
-import pymysql.cursors
+import argparse
 import sys
 import os
+import pymysql.cursors
 from ConfigParser import SafeConfigParser
 from StringIO import StringIO
 
-# class Node:
-#     "Common base for nodes"
-
-#     def __init__(self):
-#         self.
-def readConfig():
-    "Takes filename of config from commandline and parses config file"
-    configfilename = sys.argv[1]
-
-    # create an empty dictionary to store data
-    dict = {}
+def readConfig(configfilename):
+    configFile = {}
 
     if os.path.isfile(configfilename):
         # open file
         with open(configfilename) as stream:
             # pass into string & add a header
             stream = StringIO("[fakesection]\n" + stream.read())
-            
+
             # read/parse catalog data
             cp = SafeConfigParser()
-            cp.readfp(stream) 
-            dict['catalog.driver'] = cp.get('fakesection', 'catalog.driver') 
-            dict['catalog.hostname'] = cp.get('fakesection', 'catalog.hostname') 
-            dict['catalog.username'] = cp.get('fakesection', 'catalog.username') 
-            dict ['catalog.passwd'] = cp.get('fakesection', 'catalog.passwd') 
-            
+            cp.readfp(stream)
+            configFile['catalog.driver'] = cp.get('fakesection', 'catalog.driver')
+            configFile['catalog.hostname'] = cp.get('fakesection', 'catalog.hostname')
+            configFile['catalog.username'] = cp.get('fakesection', 'catalog.username')
+            configFile['catalog.passwd'] = cp.get('fakesection', 'catalog.passwd')
+
             # read the number of nodes
-            numnodes=cp.getint('fakesection', 'numnodes') 
+            numnodes=cp.getint('fakesection', 'numnodes')
 
             # read node data and print out info
             for node in range(1, numnodes + 1):
@@ -39,23 +31,16 @@ def readConfig():
                     # test if candidate exists before adding to dictionary
                     if cp.has_option('fakesection', "node" + str(node) + "." + candidate):
                         # print cp.get('fakesection', "node" + str(node) + "." + candidate)
-                        dict["node" + str(node) + "." + candidate] = cp.get('fakesection', "node" + str(node) + "." + candidate)
+                        configFile["node" + str(node) + "." + candidate] = cp.get('fakesection', "node" + str(node) + "." + candidate)
                     else:
                         print "error: candidate not found"
 
-            # print out key pair for testing
-            print "Printing dictionary key pairs:"
-            for key in dict:
-                print "\t", key, "\t\t", dict[key] 
-        return dict
-
+        return configFile
     else:
         print("Config file not found")
         return null
 
 def connect():
-    "Connects to the database"
-    # Connect to the database
     connection = pymysql.connect(host='192.168.0.50',
                                  user='root',
                                  password='root',
@@ -75,5 +60,15 @@ def connect():
     finally:
         connection.close()
 
-readConfig()
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("configfile", help="Location of Config File, See the README for more information")
+    #parser.add_argument("-i", action="store_true", help="interactively rename files")
+    args = parser.parse_args()
+    configDict = readConfig(args.configfile)
+    # print out the config dict
+    print configDict
+    #connect(configDict)
 
+if __name__ == "__main__":
+    main()
