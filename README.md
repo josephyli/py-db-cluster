@@ -3,28 +3,39 @@ Python Scripts to Control Database Cluster
 
 *PROJECT IN ALPHA*
 
-## To Do List
-
-- add installation instructions to the *Installation* section
-- Seperate cluster.py into OOP methods
-- use arg parser to take in arguments
-- documentation should have an example picture to demonstrate usage of project
-- minimally support the drop table and create table DDLs.
-- include instructions for all pre-requisite steps to get the program running
-- describe all input configuration files, parameters etc.
-- describe expected output and error conditions
-- write documentation to Google docs
-- be at least 3 pages long in size 12 fonts not including n diagrams.
-
 ## Overview
 
 The parallel SQL processing system consists of a cluster of DBMS instances running on different machines.
 DDLs are translated into corresponding DDLs for each individual DBMS instance in the cluster and executed there.
 In addition, a catalog database on the controller node stores metadata about what data is stored for each table on each DBMS instance in the cluster.
 
+
+## Requirements
+
+- [Python2.\*](https://www.python.org/)
+- [pip](https://pypi.python.org/pypi/pip)
+
+Either you can use the virtual environment with Virtualbox/Vagrant or provide your own MySql environments:
+
+- [Virtual Box](https://www.virtualbox.org/)
+- [Vagrant](https://www.vagrantup.com/)
+
 ## Installation
 
-** WRITE ME **
+- Install the pip requirements onto your local machine or into a [virtual environment](http://docs.python-guide.org/en/latest/dev/virtualenvs/).
+
+```bash
+sudo pip install -r requirements.txt
+```
+
+Ensure that the contents in **Vagrantfile** and **vagrantinstall.sh** are to your liking.
+Create the environment:
+
+```bash
+vagrant up
+```
+
+**Note that the Vagrant environment in its default state expects to be on a class C private network (192.168.0.0) working off a bridged adaptor**
 
 ## Usage
 
@@ -95,3 +106,23 @@ Sample Output:
 [jdbc:db2://10.0.0.3:50001/mydb1]: ./books.sql failed.
 [jdbc:db2://10.0.0.3:50001/mycatdb]: catalog updated.
 ```
+
+## Formatting and Dev Philosophy
+
+- 4 Space Hard Tabs are used in this project
+
+## To Do List
+
+- main method
+- use arg parser to take in arguments
+- Seperate cluster.py into OOP methods
+
+- add installation instructions to the *Installation* section
+
+- documentation should have an example picture to demonstrate usage of project
+- minimally support the drop table and create table DDLs.
+- describe all input configuration files, parameters etc.
+- describe expected output and error conditions
+- be at least 3 pages long in size 12 fonts not including n diagrams.
+- Add multi-threaded capabilities
+- Make a copy of README to Google Docs
