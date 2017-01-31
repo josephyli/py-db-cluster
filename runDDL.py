@@ -124,13 +124,18 @@ def run_commmands_against_nodes(connections, sql_commands):
 		with connection.cursor() as cursor:
 			# execute every sql command
 			for command in sql_commands:
-				print connection.host, "executing ", command
+				print "*" * 3
+				print "[", connection.host, "]"
+				print
+				print command
 				print
 				try:
 					cursor.execute(command.strip() + ';')
 					connection.commit()
+					print "Command successful"
 				except pymysql.MySQLError as e:
 					print 'Got error {!r}, errno is {}'.format(e, e.args[0])
+				print "*" * 3
 
 def main():
 	parser = argparse.ArgumentParser()
