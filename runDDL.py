@@ -128,10 +128,13 @@ def run_commmands_against_nodes(connections, sql_commands):
 		with connection.cursor() as cursor:
 			# execute every sql command
 			for command in sql_commands:
-				print connection, "executing ", command
+				print connection.host, "executing ", command
 				print
-				cursor.execute(command.strip() + ';')
-				connection.commit()
+				try:
+					cursor.execute(command.strip() + ';')
+					connection.commit()
+				except pymysql.MySQLError as e:
+					print 'Got error {!r}, errno is {}'.format(e, e.args[0])
 
 def main():
 	parser = argparse.ArgumentParser()
@@ -165,7 +168,7 @@ def main():
 	for command in sql_commands:
 		if command.split()[0].upper() == "CREATE":
 			table_list.append((re.split('\s|\(',command)[2]))
-	print "list of tables needed:" 
+	print "list of tables needed:"
 	print table_list
 
 	print "resulting sql commands"
@@ -177,6 +180,7 @@ def main():
 
 	# run the commands against the nodes ---------------------------------------
 	print "running all known sql commands against all connections..."
+	print
 	run_commmands_against_nodes(node_connections, sql_commands)
 	print "-" * 80
 	print
