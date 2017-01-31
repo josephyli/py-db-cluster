@@ -119,22 +119,38 @@ def get_connections(config_dict):
 # runs the list of commands against the list of connections
 # later, this will implement multi-threading
 def run_commmands_against_nodes(connections, sql_commands):
-	# for every connection
+	import time
+	from threading import Thread
+	from threading import active_count
+
+	# create a list of jobs
+	list_of_threads = []
 	for connection in connections:
-		with connection.cursor() as cursor:
-			# execute every sql command
 			for command in sql_commands:
-				print "-    -    " * 8
-				print "[", connection.host, "]"
-				print command
-				try:
-					cursor.execute(command.strip() + ';')
-					connection.commit()
-					print "Command successful"
-				except pymysql.MySQLError as e:
-					print 'Got error {!r}, errno is {}'.format(e, e.args[0])
-				print "-    -    " * 8
-				print
+				print "[JOB CREATED]<",connection.host+">"
+				list_of_threads.append(Thread(target=run_sql_command_against_node, args=(connection, command)))
+	print	
+	# start up all jobs
+	for t in list_of_threads:
+		t.start()
+	# wait for all jobs to complete before moving on
+	while active_count() > 1:
+		time.sleep(1)
+
+
+def run_sql_command_against_node(connection, sql_command):
+	with connection.cursor() as cursor:
+		print "-    -    " * 8
+		print "[", connection.host, "]"
+		print sql_command
+		try:
+			cursor.execute(sql_command.strip() + ';')
+			connection.commit()
+			print "Command successful"
+		except pymysql.MySQLError as e:
+			print 'Got error {!r}, errno is {}'.format(e, e.args[0])
+		print "-    -    " * 8
+		print
 
 def print_pretty_dict(idict):
 	import json
