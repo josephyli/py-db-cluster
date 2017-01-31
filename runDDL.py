@@ -86,6 +86,8 @@ def update_catalog(config_dict, table_list):
 			# execute every sql command
 			for command in sql:
 				try:
+					print connection, "updating catalog: executing ", command
+					print
 					cursor.execute(command.strip() + ';')
 				except OperationalError, msg:
 					print "Command skipped: ", msg
@@ -94,30 +96,10 @@ def update_catalog(config_dict, table_list):
 	except:
 			print "couldn't connect to catalog"
 
-	
-
-	print sql
-
 
 # returns a list of connections to all nodes
 def get_connections(config_dict):
 	connections = []
-
-	cat_hn = config_dict['catalog.hostname']
-	cat_usr = config_dict['catalog.username']
-	cat_pw = config_dict['catalog.passwd']
-	cat_d = config_dict['catalog.driver']
-
-	try:
-		connection = pymysql.connect(host=cat_hn,
-					user=cat_usr,
-					password=cat_pw,
-					db=cat_d,
-					charset='utf8mb4',
-					cursorclass=pymysql.cursors.DictCursor)
-	except:
-			print "couldn't connect to catalog"
-
 
 	for i in range(config_dict["catalog.numnodes"]):
 		try:
