@@ -66,7 +66,7 @@ def get_connections(config_dict):
 															charset='utf8mb4',
 															cursorclass=pymysql.cursors.DictCursor))
 		except:
-			print "couldn't connect to node", i
+			print "couldn't connect to node", i + 1
 	return connections
 
 # runs the list of commands against the list of connections
