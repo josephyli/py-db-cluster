@@ -1,14 +1,11 @@
 # py-db-cluster
-Python Scripts to Control Database Cluster
-
-*PROJECT IN ALPHA*
+Python Scripts to Submit DDLs to MySql Database Cluster
 
 ## Overview
 
 The parallel SQL processing system consists of a cluster of DBMS instances running on different machines.
 DDLs are translated into corresponding DDLs for each individual DBMS instance in the cluster and executed there.
 In addition, a catalog database on the controller node stores metadata about what data is stored for each table on each DBMS instance in the cluster.
-
 
 ## Requirements
 
@@ -48,8 +45,9 @@ Adjust the *clustercfg* to contain access information for each computer on the c
 ```
 catalog.driver=com.ibm.db2.jcc.DB2Driver
 catalog.hostname=jdbc:db2://10.0.0.3:50001/mycatdb
-catalog.username=db2inst1
-catalog.passwd=mypasswd
+catalog.username=thecatalogusername
+catalog.passwd=thecatalogpassword
+catalog.database=thecatalogdatabasename
 
 numnodes=2
 
@@ -57,18 +55,20 @@ node1.driver=com.ibm.db2.jcc.DB2Driver
 node1.hostname=jdbc:db2://10.0.0.3:50001/mydb1
 node1.username=db2inst1
 node1.passwd=mypasswd
+node1.database=node1database
 
 node2.driver=com.ibm.db2.jcc.DB2Driver
 node2.hostname=jdbc:db2://10.0.0.3:50001/mydb2
 node2.username=db2inst1
 node2.passwd=mypasswd
+node2.database=node2database
 ```
 
 Adjust the *ddlfile* to contain the DDL terminated by a semi-colon to be executed:
 
 ```sql
-CREATE TABLE BOOKS(isbn char(14), title char(80), price
-decimal);
+DROP TABLE BOOKS;
+CREATE TABLE BOOKS(isbn char(14), title char(80), price decimal);
 ```
 
 The input to runDDL consists of two filenames (stored in variables clustercfg and ddlfile) passed in as command line arguments:
@@ -84,16 +84,16 @@ The runDDL program will report success or failure of executing the DDL for each 
 The metadata about the DDL being executed will be stored in a catalog database on the controller node. The access information of the catalog database will be provided in the clustercfg file as well. The metadata is stored in the following DDL:
 
 ```sql
-dtables(tname char(32), -- is the table name involved in the DDL operation.
-   nodeid int,-- is the node number associated with this node.
-   nodedriver char(64), --  is the driver used to connect to the node in the cluster for this entry
-   nodeurl char(128), -- is the JDBC URL of the node in the cluster for this entry
-   nodeuser char(16), -- userid of the DBMS instance at the node in the cluster for this entry
-   nodepasswd char(16), -- password of the DBMS instance at the node in the cluster for this entry
-   partmtd int, -- partition method used to partition the data in the table
-   partcol char(32), -- column(s) used by the partition method to partition the data in the table
-   partparam1 char(32), -- parameters associated with the particular partition method
-   partparam2 char(32)) -- parameters associated with the particular partition method
+dtables(tname     char(32),  -- is the table name involved in the DDL operation.
+	   nodeid     int,       -- is the node number associated with this node.
+	   nodedriver char(64),  --  is the driver used to connect to the node in the cluster for this entry
+	   nodeurl    char(128), -- is the JDBC URL of the node in the cluster for this entry
+	   nodeuser   char(16),  -- userid of the DBMS instance at the node in the cluster for this entry
+	   nodepasswd char(16),  -- password of the DBMS instance at the node in the cluster for this entry
+	   partmtd    int,       -- partition method used to partition the data in the table
+	   partcol    char(32),  -- column(s) used by the partition method to partition the data in the table
+	   partparam1 char(32),  -- parameters associated with the particular partition method
+	   partparam2 char(32))  -- parameters associated with the particular partition method
 ```
 
 If the table does not already exist in the catalog database, the program will create the table.
@@ -102,7 +102,7 @@ This table is only updated on successful execution of the DDLs.
 For create table DDL, this table is populated and for drop table DDLs, the relevant entries in this table should be deleted.
 This operation is not multi-threaded.
 
-Sample Output:
+## Example Output
 
 ```bash
 $ python runDDL.py vagrantclustercfg.ini sql/dropbooks.sql
@@ -152,16 +152,12 @@ Command successful
 
 ```
 
-## Formatting and Dev Philosophy
+## Contributions and Formatting
 
+- Submissions to the code base are done via [Pull Requests](https://help.github.com/articles/about-pull-requests/)
 - 4 space hard tabs are used in this project
 
 ## To Do List
 
-- remove "driver"
 - documentation should have an example picture to demonstrate usage of project
-- minimally support the drop table and create table DDLs.
-- describe all input configuration files, parameters etc.
-- describe expected output and error conditions
-- be at least 3 pages long in size 12 fonts not including n diagrams.
 - Make a copy of README to Google Docs
