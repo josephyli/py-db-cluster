@@ -5,6 +5,14 @@ import pymysql.cursors
 from ConfigParser import SafeConfigParser
 from StringIO import StringIO
 
+def readDDL(ddlfilename):
+    f = open(ddlfilename, 'r')
+    ddlfile = f.read()
+    f.close()
+    sql_commands = filter(None, ddlfile.split(';'))
+    
+    return sql_commands
+
 def readConfig(configfilename):
     configFile = {}
 
@@ -40,18 +48,24 @@ def readConfig(configfilename):
         print("Config file not found")
         return null
 
-def connect():
+def connect(sql_commands):
     connection = pymysql.connect(host='192.168.0.50',
                                  user='root',
                                  password='root',
                                  db='testdatabase',
                                  charset='utf8mb4',
                                  cursorclass=pymysql.cursors.DictCursor)
+    # execute all commands from ddlfile
     try:
         with connection.cursor() as cursor:
-            # Create a new record
-            sql = "CREATE TABLE Persons (PersonID int, LastName varchar(255));"
-            cursor.execute(sql)
+            for command in sql_commands:
+                try:
+                    # execute command
+                    print "Executing " + command
+                    print
+                    cursor.execute(command.strip() + ';')
+                except OperationalError, msg:
+                    print "Command skipped: ", msg
 
         # connection is not autocommit by default. So you must commit to save
         # your changes.
@@ -63,11 +77,13 @@ def connect():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("configfile", help="Location of Config File, See the README for more information")
+    parser.add_argument("ddlfile", help="Location of Config File, See the README for more information")
     #parser.add_argument("-i", action="store_true", help="interactively rename files")
     args = parser.parse_args()
     configDict = readConfig(args.configfile)
     # print out the config dict
     print configDict
+    readDDL(args.ddlfile)
     #connect(configDict)
 
 if __name__ == "__main__":
