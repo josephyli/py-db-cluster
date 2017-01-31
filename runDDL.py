@@ -59,13 +59,13 @@ def update_catalog(config_dict, list_of_tables):
 	d = config_dict['catalog.driver']
 
 	sql = """ CREATE TABLE dtables (tname char(32),
-			nodedriver char(64), 
-			nodeurl char(128), 
-			nodeuser char(16), 
-			nodepasswd char(16), 
-			partmtd int, 
-			nodeid int, 
-			partcol char(32), 
+			nodedriver char(64),
+			nodeurl char(128),
+			nodeuser char(16),
+			nodepasswd char(16),
+			partmtd int,
+			nodeid int,
+			partcol char(32),
 			partparam1 char(32),
 			partparam2 char(32));
 	"""
@@ -79,10 +79,7 @@ def update_catalog(config_dict, list_of_tables):
 				pw = config_dict['node'+str(i + 1)+'.passwd']
 				d = config_dict['node'+str(i + 1)+'.driver']
 
-				sql += """INSERT INTO dtables 
-					VALUES (\'%s\', \'%s\', \'%s\', \'%s\',\'%s\',
-					\'0\',\'%d\',\'\',\'\', \'\');
-					""" % (table,d,hn,usr,pw,i+1)
+				sql += "INSERT INTO dtables VALUES (\'%s\', \'%s\', \'%s\', \'%s\',\'%s\', NULL,%d,NULL,NULL,NULL);" % (table,d,hn,usr,pw,i+1)
 			except:
 				print "update_catalog error"
 	print sql
@@ -110,7 +107,7 @@ def get_connections(config_dict):
 # runs the list of commands against the list of connections
 # later, this will implement multi-threading
 def run_commmands_against_nodes(connections, sql_commands):
-	
+
 	# for every connection
 	for connection in connections:
 		try:
@@ -160,8 +157,8 @@ def main():
 	list_of_tables = []
 	for command in sql_commands:
 		if command.split()[0].upper() == "CREATE":
-			list_of_tables.append((re.split('\s|\(',command)[2])
-	print "list of tables needed:" 
+			list_of_tables.append((re.split('\s|\(',command)[2]))
+	print "list of tables needed:"
 	print list_of_tables
 	print "resulting sql commands"
 	print sql_commands
