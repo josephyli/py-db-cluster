@@ -20,6 +20,10 @@ Either you can use the virtual environment with Virtualbox/Vagrant or provide yo
 - [Virtual Box](https://www.virtualbox.org/)
 - [Vagrant](https://www.vagrantup.com/)
 
+If the vagrant environment is not used, be sure that there are databases created in the mysql environments.
+The name of the database and the credentials are specified in the config file passed in at run time.
+Follow the clustercfg.ini as a template.
+
 ## Installation
 
 - Install the pip requirements onto your local machine or into a [virtual environment](http://docs.python-guide.org/en/latest/dev/virtualenvs/).
@@ -154,10 +158,10 @@ Command successful
 
 ## To Do List
 
+- remove "driver"
 - documentation should have an example picture to demonstrate usage of project
 - minimally support the drop table and create table DDLs.
 - describe all input configuration files, parameters etc.
 - describe expected output and error conditions
 - be at least 3 pages long in size 12 fonts not including n diagrams.
-- Add multi-threaded capabilities
 - Make a copy of README to Google Docs
