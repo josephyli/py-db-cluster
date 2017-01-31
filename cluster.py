@@ -77,7 +77,7 @@ def connect(sql_commands):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("configfile", help="Location of Config File, See the README for more information")
-    parser.add_argument("ddlfile", help="Location of Config File, See the README for more information")
+    parser.add_argument("ddlfile", help="Location of DDL File, See the README for more information")
     #parser.add_argument("-i", action="store_true", help="interactively rename files")
     args = parser.parse_args()
     configDict = readConfig(args.configfile)
