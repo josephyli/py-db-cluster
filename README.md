@@ -70,7 +70,7 @@ decimal);
 The input to runDDL consists of two filenames (stored in variables clustercfg and ddlfile) passed in as command line arguments:
 
 ```bash
-python cluster.py clustercfg ddlfile
+python cluster.py clustercfg.ini ddlfile
 ```
 
 The runDDL program will execute the same DDL on the database instance of each of the computers on the cluster concurrently using threads.
@@ -101,7 +101,7 @@ This operation is not multi-threaded.
 Sample Output:
 
 ```bash
-./run.sh ./cluster.cfg ./books.sql
+./run.sh clustercfg.ini ddlfile
 [jdbc:db2://10.0.0.3:50001/mydb2]: ./books.sql success.
 [jdbc:db2://10.0.0.3:50001/mydb1]: ./books.sql failed.
 [jdbc:db2://10.0.0.3:50001/mycatdb]: catalog updated.
@@ -109,15 +109,9 @@ Sample Output:
 
 ## Formatting and Dev Philosophy
 
-- 4 Space Hard Tabs are used in this project
+- 4 space hard tabs are used in this project
 
 ## To Do List
-
-- main method
-- use arg parser to take in arguments
-- Seperate cluster.py into OOP methods
-
-- add installation instructions to the *Installation* section
 
 - documentation should have an example picture to demonstrate usage of project
 - minimally support the drop table and create table DDLs.
