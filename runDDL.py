@@ -58,10 +58,6 @@ def get_node_config(configfilename):
 # stores metadata about the DDL in a catalog database
 # using a list of tables that need to be created in the catalog
 def update_catalog(config_dict, list_of_tables):
-	hn = config_dict['catalog.hostname']
-	usr = config_dict['catalog.username']
-	pw = config_dict['catalog.passwd']
-	d = config_dict['catalog.driver']
 
 	sql = "CREATE TABLE dtables (tname char(32), nodedriver char(64), nodeurl char(128), nodeuser char(16), nodepasswd char(16), partmtd int, nodeid int, partcol char(32), partparam1 char(32), partparam2 char(32));\n"
 
@@ -83,6 +79,23 @@ def update_catalog(config_dict, list_of_tables):
 # returns a list of connections to all nodes
 def get_connections(config_dict):
 	connections = []
+
+	cat_hn = config_dict['catalog.hostname']
+	cat_usr = config_dict['catalog.username']
+	cat_pw = config_dict['catalog.passwd']
+	cat_d = config_dict['catalog.driver']
+
+	try:
+		connection = pymysql.connect(host=cat_hn,
+					user=cat_usr,
+					password=cat_pw,
+					db=cat_d,
+					charset='utf8mb4',
+					cursorclass=pymysql.cursors.DictCursor)
+	except:
+			print "couldn't connect to catalog"
+
+
 	for i in range(config_dict["catalog.numnodes"]):
 		try:
 			hn = config_dict['node'+str(i + 1)+'.hostname']
