@@ -11,7 +11,12 @@ def read_DDL(ddlfilename):
 	f = open(ddlfilename, 'r')
 	ddlfile = f.read()
 	f.close()
-	sql_commands = filter(None, ddlfile.split(';'))
+	temp = filter(None, ddlfile.split(';'))
+	sql_commands = []
+	# filter out white space from file input
+	for c in temp:
+		if c != "\n":
+			sql_commands.append(c)
 	return sql_commands
 
 # returns a dict with all nodes information
