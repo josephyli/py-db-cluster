@@ -101,10 +101,51 @@ This operation is not multi-threaded.
 Sample Output:
 
 ```bash
-./run.sh clustercfg.ini ddlfile
-[jdbc:db2://10.0.0.3:50001/mydb2]: ./books.sql success.
-[jdbc:db2://10.0.0.3:50001/mydb1]: ./books.sql failed.
-[jdbc:db2://10.0.0.3:50001/mycatdb]: catalog updated.
+$ python runDDL.py vagrantclustercfg.ini sql/dropbooks.sql
+
+================================================================================
+
+parsing vagrantclustercfg.ini into a dict...
+{
+ "node1.passwd": "root",
+ "catalog.driver": "com.ibm.db2.jcc.DB2Driver",
+ "node1.username": "root",
+ "catalog.passwd": "mypasswd",
+ "catalog.hostname": "jdbc:db2://10.0.0.3:50001/mycatdb",
+ "node1.hostname": "192.168.0.50",
+ "node1.driver": "flagrant",
+ "catalog.username": "db2inst1",
+ "catalog.numnodes": 1
+}
+
+--------------------------------------------------------------------------------
+
+creating connections...
+list of connections:
+192.168.0.50
+
+--------------------------------------------------------------------------------
+
+parsing sql/dropbooks.sql into sql commands...
+list of tables needed:
+[]
+resulting sql commands
+['DROP TABLE BOOKS']
+couldnt connect to catalog
+
+--------------------------------------------------------------------------------
+
+running all known sql commands against all connections...
+
+-    -    -    -    -    -    -    -    -    -    -    -    -    -    -    -    
+[ 192.168.0.50 ]
+DROP TABLE BOOKS
+Command successful
+-    -    -    -    -    -    -    -    -    -    -    -    -    -    -    -    
+
+
+================================================================================
+
 ```
 
 ## Formatting and Dev Philosophy
