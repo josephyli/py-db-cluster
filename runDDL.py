@@ -124,18 +124,21 @@ def run_commmands_against_nodes(connections, sql_commands):
 		with connection.cursor() as cursor:
 			# execute every sql command
 			for command in sql_commands:
-				print "*" * 3
+				print "-    -    " * 8
 				print "[", connection.host, "]"
-				print
 				print command
-				print
 				try:
 					cursor.execute(command.strip() + ';')
 					connection.commit()
 					print "Command successful"
 				except pymysql.MySQLError as e:
 					print 'Got error {!r}, errno is {}'.format(e, e.args[0])
-				print "*" * 3
+				print "-    -    " * 8
+				print
+
+def print_pretty_dict(idict):
+	import json
+	print json.dumps(idict, indent=1)
 
 def main():
 	parser = argparse.ArgumentParser()
@@ -145,25 +148,28 @@ def main():
 	print
 	print "=" * 80
 	print
-	print
 
 	# read configuration and return a dictionary -------------------------------
 	print "parsing", args.configfile, "into a dict..."
 	nodes_dict = get_node_config(args.configfile)
+	print_pretty_dict(nodes_dict)
+	print
 	print "-" * 80
 	print
 
 	# return a list of connections to all nodes --------------------------------
-	print "creating connections from..."
-	print nodes_dict
+	print "creating connections..."
 	node_connections = get_connections(nodes_dict)
+	print "list of connections:"
+	for c in node_connections:
+		print c.host
+	print
 	print "-" * 80
 	print
 
 	# read DDL and return a list of sql commands -------------------------------
 	print "parsing", args.ddlfile, "into sql commands..."
 	sql_commands = read_DDL(args.ddlfile)
-
 	# list of tables is used to update catalog with metadata
 	table_list = []
 	for command in sql_commands:
@@ -171,11 +177,10 @@ def main():
 			table_list.append((re.split('\s|\(',command)[2]))
 	print "list of tables needed:"
 	print table_list
-
 	print "resulting sql commands"
 	print sql_commands
-
 	update_catalog(nodes_dict,table_list)
+	print
 	print "-" * 80
 	print
 
@@ -183,8 +188,6 @@ def main():
 	print "running all known sql commands against all connections..."
 	print
 	run_commmands_against_nodes(node_connections, sql_commands)
-	print "-" * 80
-	print
 
 	print
 	print "=" * 80
