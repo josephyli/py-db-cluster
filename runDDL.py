@@ -81,7 +81,7 @@ def update_catalog(config_dict, list_of_tables):
 
 				sql += """INSERT INTO dtables 
 					VALUES (\'%s\', \'%s\', \'%s\', \'%s\',\'%s\',
-					\'0\',\'%d\',\'\',\'\', \'\');
+					NULL,%d,NULL,NULL,NULL);
 					""" % (table,d,hn,usr,pw,i+1)
 			except:
 				print "update_catalog error"
@@ -160,7 +160,7 @@ def main():
 	list_of_tables = []
 	for command in sql_commands:
 		if command.split()[0].upper() == "CREATE":
-			list_of_tables.append((re.split('\s|\(',command)[2])
+			list_of_tables.append((re.split('\s|\(',command)[2]))
 	print "list of tables needed:" 
 	print list_of_tables
 	print "resulting sql commands"
