@@ -58,17 +58,7 @@ def update_catalog(config_dict, list_of_tables):
 	pw = config_dict['catalog.passwd']
 	d = config_dict['catalog.driver']
 
-	sql = """ CREATE TABLE dtables (tname char(32),
-			nodedriver char(64),
-			nodeurl char(128),
-			nodeuser char(16),
-			nodepasswd char(16),
-			partmtd int,
-			nodeid int,
-			partcol char(32),
-			partparam1 char(32),
-			partparam2 char(32));
-	"""
+	sql = "CREATE TABLE dtables (tname char(32), nodedriver char(64), nodeurl char(128), nodeuser char(16), nodepasswd char(16), partmtd int, nodeid int, partcol char(32), partparam1 char(32), partparam2 char(32));\n"
 
 	# inserts into catalog the tables created for each node
 	for table in list_of_tables:
@@ -158,7 +148,7 @@ def main():
 	for command in sql_commands:
 		if command.split()[0].upper() == "CREATE":
 			list_of_tables.append((re.split('\s|\(',command)[2]))
-	print "list of tables needed:"
+	print "list of tables needed:" 
 	print list_of_tables
 	print "resulting sql commands"
 	print sql_commands
