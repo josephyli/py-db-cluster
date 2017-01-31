@@ -72,21 +72,24 @@ def get_connections(config_dict):
 # runs the list of commands against the list of connections
 # later, this will implement multi-threading
 def run_commmands_against_nodes(connections, sql_commands):
-	try:
-		# for every connection
-		for connection in connections:
+	
+	# for every connection
+	for connection in connections:
+		try:
 			with connection.cursor() as cursor:
-				# execute every sql command
-				for command in sql_commands:
-					try:
-						print connection, "executing ", command
-						print
-						cursor.execute(command.strip() + ';')
-					except OperationalError, msg:
-						print "Command skipped: ", msg
-						connection.commit()
-	except e:
-		print e
+					# execute every sql command
+					for command in sql_commands:
+						try:
+							print connection, "executing ", command
+							print
+							cursor.execute(command.strip() + ';')
+						except OperationalError, msg:
+							print "Command skipped: ", msg
+							connection.commit()
+		except e:
+			print e
+		finally:
+			connection.close()
 
 def main():
 	parser = argparse.ArgumentParser()
