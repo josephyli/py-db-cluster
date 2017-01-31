@@ -99,12 +99,12 @@ def get_connections(config_dict):
 			usr = config_dict['node'+str(i + 1)+'.username']
 			pw = config_dict['node'+str(i + 1)+'.passwd']
 			d = config_dict['node'+str(i + 1)+'.driver']
-			connections.append(connection = pymysql.connect(host=hn,
-															user=usr,
-															password=pw,
-															db=d,
-															charset='utf8mb4',
-															cursorclass=pymysql.cursors.DictCursor))
+			connections.append(pymysql.connect(host=hn,
+											user=usr,
+											password=pw,
+											db=d,
+											charset='utf8mb4',
+											cursorclass=pymysql.cursors.DictCursor))
 		except:
 			print "couldn't connect to node", i + 1
 	return connections
@@ -112,24 +112,15 @@ def get_connections(config_dict):
 # runs the list of commands against the list of connections
 # later, this will implement multi-threading
 def run_commmands_against_nodes(connections, sql_commands):
-
 	# for every connection
 	for connection in connections:
-		try:
-			with connection.cursor() as cursor:
-					# execute every sql command
-					for command in sql_commands:
-						try:
-							print connection, "executing ", command
-							print
-							cursor.execute(command.strip() + ';')
-						except OperationalError, msg:
-							print "Command skipped: ", msg
-							connection.commit()
-		except e:
-			print e
-		finally:
-			connection.close()
+		with connection.cursor() as cursor:
+			# execute every sql command
+			for command in sql_commands:
+				print connection, "executing ", command
+				print
+				cursor.execute(command.strip() + ';')
+				connection.commit()
 
 def main():
 	parser = argparse.ArgumentParser()
