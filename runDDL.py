@@ -100,10 +100,6 @@ def update_catalog(config_dict, table_list):
 def get_connections(config_dict):
 	connections = []
 
-# returns a list of connections to all nodes
-def get_connections(config_dict):
-	connections = []
-
 	for i in range(config_dict["catalog.numnodes"]):
 		try:
 			hn = config_dict['node'+str(i + 1)+'.hostname']
