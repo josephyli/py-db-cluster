@@ -135,7 +135,7 @@ def run_commmands_against_nodes(connections, sql_commands):
 			for command in sql_commands:
 				print "[JOB CREATED]<",connection.host+">"
 				list_of_threads.append(Thread(target=run_sql_command_against_node, args=(connection, command)))
-	print	
+	print
 	# start up all jobs
 	for t in list_of_threads:
 		t.start()
@@ -180,9 +180,13 @@ def main():
 	print
 
 	# return a list of connections to all nodes --------------------------------
-	print "creating connections..."
+	print "Creating Connections..."
 	node_connections = get_connections(nodes_dict)
-	print "list of connections:"
+	# if no connections were made, terminate the program, comment this out for testing
+	if len(node_connections) == 0:
+		print "Terminating due to connection failures..."
+		sys.exit()
+	print "Number of Connections:", str(len(node_connections))
 	for c in node_connections:
 		print c.host
 	print
