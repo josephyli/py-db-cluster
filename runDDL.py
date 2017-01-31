@@ -36,6 +36,7 @@ def get_node_config(configfilename):
 			config_dict['catalog.hostname'] = cp.get('fakesection', 'catalog.hostname')
 			config_dict['catalog.username'] = cp.get('fakesection', 'catalog.username')
 			config_dict['catalog.passwd'] = cp.get('fakesection', 'catalog.passwd')
+			config_dict['catalog.database'] = cp.get('fakesection', 'catalog.database')
 
 			# read the number of nodes
 			numnodes = cp.getint('fakesection', 'numnodes')
@@ -43,7 +44,7 @@ def get_node_config(configfilename):
 
 			# read node data and print out info
 			for node in range(1, numnodes + 1):
-				for candidate in ['driver', 'hostname', 'username', 'passwd']:
+				for candidate in ['driver', 'hostname', 'username', 'passwd', 'database']:
 					# test if candidate exists before adding to dictionary
 					if cp.has_option('fakesection', "node" + str(node) + "." + candidate):
 						# print cp.get('fakesection', "node" + str(node) + "." + candidate)
@@ -105,15 +106,20 @@ def get_connections(config_dict):
 			hn = config_dict['node'+str(i + 1)+'.hostname']
 			usr = config_dict['node'+str(i + 1)+'.username']
 			pw = config_dict['node'+str(i + 1)+'.passwd']
-			d = config_dict['node'+str(i + 1)+'.driver']
+			db = config_dict['node'+str(i + 1)+'.database']
 			connections.append(pymysql.connect(host=hn,
 											user=usr,
 											password=pw,
-											db=d,
+											db=db,
 											charset='utf8mb4',
 											cursorclass=pymysql.cursors.DictCursor))
 		except:
-			print "couldn't connect to node", i + 1
+			print "[NODE", i +  1, "CONNECTION FAILED]:"
+			print "hostname:".rjust(12), config_dict['node'+str(i + 1)+'.hostname']
+			print "username:".rjust(12), config_dict['node'+str(i + 1)+'.username']
+			print "password:".rjust(12), config_dict['node'+str(i + 1)+'.passwd']
+			print "database:".rjust(12), config_dict['node'+str(i + 1)+'.database']
+			print
 	return connections
 
 # runs the list of commands against the list of connections

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # comment out this line if you want to use DHCP
-ifconfig eth1 192.168.0.50 netmask 255.255.255.0 up
+ifconfig eth1 192.168.0.51 netmask 255.255.255.0 up
 sudo apt-get update
 sudo debconf-set-selections <<< 'mysql-server mysql-server/root_password password root'
 sudo debconf-set-selections <<< 'mysql-server mysql-server/root_password_again password root'
