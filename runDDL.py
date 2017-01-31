@@ -96,6 +96,9 @@ def update_catalog(config_dict, table_list):
 	except:
 			print "couldn't connect to catalog"
 
+# returns a list of connections to all nodes
+def get_connections(config_dict):
+	connections = []
 
 # returns a list of connections to all nodes
 def get_connections(config_dict):
