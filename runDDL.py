@@ -36,7 +36,7 @@ def get_node_config(configfilename):
 			config_dict['catalog.hostname'] = cp.get('fakesection', 'catalog.hostname')
 			config_dict['catalog.username'] = cp.get('fakesection', 'catalog.username')
 			config_dict['catalog.passwd'] = cp.get('fakesection', 'catalog.passwd')
-			config_dict['catalog.database'] = cp.get('fakesection', 'catalog.database')
+			config_dict['catalog.database'] = cp.get('fakesection', 'catalog.hostname').rsplit('/', 1)[-1]
 
 			# read the number of nodes
 			numnodes = cp.getint('fakesection', 'numnodes')
@@ -50,7 +50,10 @@ def get_node_config(configfilename):
 						# print cp.get('fakesection', "node" + str(node) + "." + candidate)
 						config_dict["node" + str(node) + "." + candidate] = cp.get('fakesection', "node" + str(node) + "." + candidate)
 					else:
-						print "error: candidate not found"
+						if candidate == "database":
+							config_dict["node" + str(node) + ".database"] = cp.get('fakesection', "node" + str(node) + ".hostname").rsplit('/', 1)[-1]
+						else: 
+							print "error: candidate not found"
 			return config_dict
 	else:
 		print("No config file found at", configfilename)
@@ -62,7 +65,8 @@ def update_catalog(config_dict, table_list):
 	cat_hn = config_dict['catalog.hostname']
 	cat_usr = config_dict['catalog.username']
 	cat_pw = config_dict['catalog.passwd']
-	cat_d = config_dict['catalog.driver']
+	cat_dr = config_dict['catalog.driver']
+	cat_db = config_dict['catalog.database']
 
 	sql = ["CREATE TABLE dtables (tname char(32), nodedriver char(64), nodeurl char(128), nodeuser char(16), nodepasswd char(16), partmtd int, nodeid int, partcol char(32), partparam1 char(32), partparam2 char(32));"]
 
@@ -72,7 +76,7 @@ def update_catalog(config_dict, table_list):
 				hn = config_dict['node'+str(i + 1)+'.hostname']
 				usr = config_dict['node'+str(i + 1)+'.username']
 				pw = config_dict['node'+str(i + 1)+'.passwd']
-				d = config_dict['node'+str(i + 1)+'.driver']
+				dr = config_dict['node'+str(i + 1)+'.driver']
 
 				sql.append("INSERT INTO dtables VALUES (\'%s\', \'%s\', \'%s\', \'%s\',\'%s\', NULL,%d,NULL,NULL,NULL);" % (table,d,hn,usr,pw,i+1))
 	# connect and execute the sql statement
@@ -80,7 +84,7 @@ def update_catalog(config_dict, table_list):
 		connection = pymysql.connect(host=cat_hn,
 					user=cat_usr,
 					password=cat_pw,
-					db=cat_d,
+					db=cat_db,
 					charset='utf8mb4',
 					cursorclass=pymysql.cursors.DictCursor)
 		with connection.cursor() as cursor:
