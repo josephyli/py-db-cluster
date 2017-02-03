@@ -62,7 +62,7 @@ def get_node_config(configfilename):
 # stores metadata about the DDL in a catalog database
 # using a list of tables that need to be created in the catalog
 def update_catalog(config_dict, table_list):
-	cat_hn = config_dict['catalog.hostname']
+	cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
 	cat_usr = config_dict['catalog.username']
 	cat_pw = config_dict['catalog.passwd']
 	cat_dr = config_dict['catalog.driver']
@@ -78,7 +78,7 @@ def update_catalog(config_dict, table_list):
 				pw = config_dict['node'+str(i + 1)+'.passwd']
 				dr = config_dict['node'+str(i + 1)+'.driver']
 
-				sql.append("INSERT INTO dtables VALUES (\'%s\', \'%s\', \'%s\', \'%s\',\'%s\', NULL,%d,NULL,NULL,NULL);" % (table,d,hn,usr,pw,i+1))
+				sql.append("INSERT INTO dtables VALUES (\'%s\', \'%s\', \'%s\', \'%s\',\'%s\', NULL,%d,NULL,NULL,NULL);" % (table,dr,hn,usr,pw,i+1))
 	# connect and execute the sql statement
 	try:
 		connection = pymysql.connect(host=cat_hn,
@@ -107,7 +107,7 @@ def get_connections(config_dict):
 
 	for i in range(config_dict["catalog.numnodes"]):
 		try:
-			hn = config_dict['node'+str(i + 1)+'.hostname']
+			hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['node'+str(i + 1)+'.hostname'] )[0]
 			usr = config_dict['node'+str(i + 1)+'.username']
 			pw = config_dict['node'+str(i + 1)+'.passwd']
 			db = config_dict['node'+str(i + 1)+'.database']
@@ -119,7 +119,7 @@ def get_connections(config_dict):
 											cursorclass=pymysql.cursors.DictCursor))
 		except:
 			print "[NODE", i +  1, "CONNECTION FAILED]:"
-			print "hostname:".rjust(12), config_dict['node'+str(i + 1)+'.hostname']
+			print "hostname:".rjust(12), re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['node'+str(i + 1)+'.hostname'] )[0]
 			print "username:".rjust(12), config_dict['node'+str(i + 1)+'.username']
 			print "password:".rjust(12), config_dict['node'+str(i + 1)+'.passwd']
 			print "database:".rjust(12), config_dict['node'+str(i + 1)+'.database']
