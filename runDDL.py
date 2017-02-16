@@ -136,10 +136,10 @@ def run_commmands_against_nodes(connections, sql_commands):
 	# create a list of jobs
 	list_of_threads = []
 	for connection in connections:
-			for command in sql_commands:
-				print "[JOB CREATED]<",connection.host+">"
-				list_of_threads.append(Thread(target=run_sql_command_against_node, args=(connection, command)))
-	print
+			print "[JOB CREATED] <"+ connection.host+ " - " + connection.db+ ">"
+			print connection
+			list_of_threads.append(Thread(target=run_sql_commands_against_node, args=(connection, sql_commands)))
+			print
 	# start up all jobs
 	for t in list_of_threads:
 		t.start()
@@ -148,19 +148,16 @@ def run_commmands_against_nodes(connections, sql_commands):
 		time.sleep(1)
 
 
-def run_sql_command_against_node(connection, sql_command):
+def run_sql_commands_against_node(connection, sql_commands):
 	with connection.cursor() as cursor:
-		print "-    -    " * 8
-		print "[", connection.host, "]"
-		print sql_command
 		try:
-			cursor.execute(sql_command.strip() + ';')
+			for c in sql_commands:
+				cursor.execute(c.strip() + ';')
 			connection.commit()
-			print "Command successful"
+			print "[JOB SUCCESSFUL] <"+connection.host+ " - " + connection.db+ ">"
+			connection.close()
 		except pymysql.MySQLError as e:
-			print 'Got error {!r}, errno is {}'.format(e, e.args[0])
-		print "-    -    " * 8
-		print
+			print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.args[0])
 
 def print_pretty_dict(idict):
 	import json
