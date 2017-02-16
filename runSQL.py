@@ -5,13 +5,27 @@ import os
 import pymysql.cursors
 from ConfigParser import SafeConfigParser
 from StringIO import StringIO
+import csv
 
-# returns a list of sql commands as strings
+# returns a list of ddl commands as strings
 def read_DDL(ddlfilename):
 	f = open(ddlfilename, 'r')
 	ddlfile = f.read()
 	f.close()
 	temp = filter(None, ddlfile.split(';'))
+	sql_commands = []
+	# filter out white space from file input
+	for c in temp:
+		if c != "\n":
+			sql_commands.append(c)
+	return sql_commands
+
+# returns a list of sql commands as strings
+def read_SQL(sqlfilename):
+	f = open(sqlfilename, 'r')
+	sqlfile = f.read()
+	f.close()
+	temp = filter(None, sqlfile.split(';'))
 	sql_commands = []
 	# filter out white space from file input
 	for c in temp:
@@ -68,7 +82,7 @@ def update_catalog(config_dict, table_list):
 	cat_dr = config_dict['catalog.driver']
 	cat_db = config_dict['catalog.database']
 
-	sql = ["CREATE TABLE dtables (tname char(32), nodedriver char(64), nodeurl char(128), nodeuser char(16), nodepasswd char(16), partmtd int, nodeid int, partcol char(32), partparam1 char(32), partparam2 char(32));"]
+	sql = ["DROP TABLE IF EXISTS dtables; CREATE TABLE dtables (tname char(32), nodedriver char(64), nodeurl char(128), nodeuser char(16), nodepasswd char(16), partmtd int, nodeid int, partcol char(32), partparam1 char(32), partparam2 char(32));"]
 
 	# prepares the sql statement to insert into catalog the tables in each node
 	for table in table_list:
@@ -137,7 +151,7 @@ def run_commmands_against_nodes(connections, sql_commands):
 	list_of_threads = []
 	for connection in connections:
 			for command in sql_commands:
-				print "[JOB CREATED]<",connection.host+">"
+				print "[JOB CREATED]<",connection.host+"> for db <",connection.db+">"
 				list_of_threads.append(Thread(target=run_sql_command_against_node, args=(connection, command)))
 	print
 	# start up all jobs
@@ -170,18 +184,19 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument("configfile", help="Location of Config File, See the README for more information")
 	parser.add_argument("ddlfile", help="Location of DDL File, See the README for more information")
+	parser.add_argument("sqlfile", help="Location of SQL File, See the README for more information")
 	args = parser.parse_args()
 	print
 	print "=" * 80
 	print
 
 	# read configuration and return a dictionary -------------------------------
-	print "parsing", args.configfile, "into a dict..."
+	# print "parsing", args.configfile, "into a dict..."
 	nodes_dict = get_node_config(args.configfile)
-	print_pretty_dict(nodes_dict)
-	print
-	print "-" * 80
-	print
+	# print_pretty_dict(nodes_dict)
+	# print
+	# print "-" * 80
+	# print
 
 	# return a list of connections to all nodes --------------------------------
 	print "Creating Connections..."
@@ -198,25 +213,31 @@ def main():
 	print
 
 	# read DDL and return a list of sql commands -------------------------------
-	print "parsing", args.ddlfile, "into sql commands..."
+	print "parsing ", args.ddlfile, "into sql commands..."
 	sql_commands = read_DDL(args.ddlfile)
 	# list of tables is used to update catalog with metadata
 	table_list = []
 	for command in sql_commands:
 		if command.split()[0].upper() == "CREATE":
 			table_list.append((re.split('\s|\(',command)[2]))
-	print "list of tables needed:"
-	print table_list
-	print "resulting sql commands"
-	print sql_commands
+	# print "list of tables needed:"
+	# print table_list
+	# print "resulting sql commands"
+	# print sql_commands
 	update_catalog(nodes_dict,table_list)
 	print
 	print "-" * 80
 	print
 
 	# run the commands against the nodes ---------------------------------------
-	print "running all known sql commands against all connections..."
+	print "creating tables in nodes according to ddlfile..."
 	print
+	run_commmands_against_nodes(node_connections, sql_commands)
+
+	# run the commands against the nodes ---------------------------------------
+	print "running sql commands against all connections..."
+	print
+	sql_commands = read_SQL(args.sqlfile)
 	run_commmands_against_nodes(node_connections, sql_commands)
 
 	print
