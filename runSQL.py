@@ -5,6 +5,7 @@ import os
 import pymysql.cursors
 from ConfigParser import SafeConfigParser
 from StringIO import StringIO
+import csv
 
 # returns a list of ddl commands as strings
 def read_DDL(ddlfilename):
@@ -150,7 +151,7 @@ def run_commmands_against_nodes(connections, sql_commands):
 	list_of_threads = []
 	for connection in connections:
 			for command in sql_commands:
-				print "[TABLE CREATED]<",connection.host+"> for db <",connection.db+">"
+				print "[JOB CREATED]<",connection.host+"> for db <",connection.db+">"
 				list_of_threads.append(Thread(target=run_sql_command_against_node, args=(connection, command)))
 	print
 	# start up all jobs
@@ -234,10 +235,10 @@ def main():
 	run_commmands_against_nodes(node_connections, sql_commands)
 
 	# run the commands against the nodes ---------------------------------------
-	# print "running all known sql commands against all connections..."
-	# print
-	# sql_commands = read_SQL(args.sqlfile)
-	# run_commmands_against_nodes(node_connections, sql_commands)
+	print "running sql commands against all connections..."
+	print
+	sql_commands = read_SQL(args.sqlfile)
+	run_commmands_against_nodes(node_connections, sql_commands)
 
 	print
 	print "=" * 80
