@@ -46,7 +46,6 @@ def get_node_config(configfilename):
 					for parameter in ['param1', 'param2']:
 						# test if candidate exists before adding to dictionary
 						if cp.has_option('fakesection', "node" + str(node) + "." + parameter):
-							# print cp.get('fakesection', "node" + str(node) + "." + candidate)
 							config_dict["partition.node" + str(node) + "." + parameter] = cp.get('fakesection', "partition.node" + str(node) + ".param" + parameter)
 						# else:
 						# 	if candidate == "database":
