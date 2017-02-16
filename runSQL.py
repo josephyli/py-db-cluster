@@ -172,6 +172,11 @@ def run_sql_commands_against_node(connection, sql_commands):
 		try:
 			for c in sql_commands:
 				cursor.execute(c.strip() + ';')
+				while True:
+					row = cursor.fetchone()
+					if row == None:
+						break
+					print(row)
 			connection.commit()
 			print "[JOB SUCCESSFUL] <"+connection.host+ " - " + connection.db+ ">"
 			connection.close()
@@ -249,7 +254,10 @@ def main():
 	print "EXECUTING DDL COMMANDS ON NODES...".center(80, " ")
 	print
 	run_commmands_against_nodes(node_connections, sql_commands)
-	# reconnect quietly
+
+	# run the commands against the nodes ---------------------------------------
+	print "EXECUTING SQL COMMANDS ON NODES...".center(80, " ")
+	print
 	node_connections = get_connections(nodes_dict)
 	sql_commands = read_SQL(args.sqlfile)
 	run_commmands_against_nodes(node_connections, sql_commands)
