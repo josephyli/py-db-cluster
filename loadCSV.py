@@ -8,10 +8,11 @@ from ConfigParser import SafeConfigParser
 from StringIO import StringIO
 
 def loadCSV(configfilename, csvfilename):
+	csv_dict = []
 	with open(csvfilename, 'rb') as f:
 		for row in csv.reader(f, delimiter=','):
-			print row
-			# print(row['number'], row['textbook title'], row['author'])
+			csv_dict.append(row)
+	return csv_dict
 
 # returns a dict with all nodes information
 # responsible for parsing the config file
@@ -35,6 +36,7 @@ def get_node_config(configfilename):
 			config_dict['catalog.tablename'] = cp.get('fakesection', 'tablename')
 
 			config_dict['catalog.partition.method'] = cp.get('fakesection', 'partition.method')
+			config_dict['catalog.partition.column'] = cp.get('fakesection', 'partition.column')
 
 			# read the number of nodes
 			numnodes = cp.getint('fakesection', 'numnodes')
@@ -104,7 +106,12 @@ def main():
 	args = parser.parse_args()
 
 	nodes_dict = get_node_config(args.configfile)
-	print nodes_dict
+	# print nodes_dict
+
+	csv_dict = loadCSV(args.configfile, args.csvfile)
+	for x in csv_dict:
+		for y in x:
+			print y
 
 if __name__ == "__main__":
 	main()
