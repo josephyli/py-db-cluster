@@ -89,29 +89,29 @@ def print_pretty_dict(idict):
 	print json.dumps(idict, indent=1)
 
 # returns a list of connections to all nodes
-# def get_connections(config_dict):
-# 	connections = []
+def get_connections(config_dict):
+	connections = []
 
-# 	for i in range(config_dict["catalog.numnodes"]):
-# 		try:
-# 			hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['node'+str(i + 1)+'.hostname'] )[0]
-# 			usr = config_dict['node'+str(i + 1)+'.username']
-# 			pw = config_dict['node'+str(i + 1)+'.passwd']
-# 			db = config_dict['node'+str(i + 1)+'.database']
-# 			connections.append(pymysql.connect(host=hn,
-# 											user=usr,
-# 											password=pw,
-# 											db=db,
-# 											charset='utf8mb4',
-# 											cursorclass=pymysql.cursors.DictCursor))
-# 		except:
-# 			print "[NODE", i +  1, "CONNECTION FAILED]:"
-# 			print "hostname:".rjust(12), re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['node'+str(i + 1)+'.hostname'] )[0]
-# 			print "username:".rjust(12), config_dict['node'+str(i + 1)+'.username']
-# 			print "password:".rjust(12), config_dict['node'+str(i + 1)+'.passwd']
-# 			print "database:".rjust(12), config_dict['node'+str(i + 1)+'.database']
-# 			print
-# 	return connections
+	for i in range(config_dict["catalog.numnodes"]):
+		try:
+			hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['node'+str(i + 1)+'.hostname'] )[0]
+			usr = config_dict['node'+str(i + 1)+'.username']
+			pw = config_dict['node'+str(i + 1)+'.passwd']
+			db = config_dict['node'+str(i + 1)+'.database']
+			connections.append(pymysql.connect(host=hn,
+											user=usr,
+											password=pw,
+											db=db,
+											charset='utf8mb4',
+											cursorclass=pymysql.cursors.DictCursor))
+		except:
+			print "[NODE", i +  1, "CONNECTION FAILED]:"
+			print "hostname:".rjust(12), re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['node'+str(i + 1)+'.hostname'] )[0]
+			print "username:".rjust(12), config_dict['node'+str(i + 1)+'.username']
+			print "password:".rjust(12), config_dict['node'+str(i + 1)+'.passwd']
+			print "database:".rjust(12), config_dict['node'+str(i + 1)+'.database']
+			print
+	return connections
 
 # update node data from catalog
 def update_catalog_with_partitions(config_dict):
@@ -138,13 +138,6 @@ def update_catalog_with_partitions(config_dict):
 
 			sql.append("UPDATE dtables SET partmtd = %d, partcol = \'%s\', partparam1 = %d, partparam2 = %d WHERE tname=\'%s\' AND nodeid = %d; " % (pm, pc, p1, p2, tablename, nodeid))
 
-	# connect and execute the sql statement
-	connection = pymysql.connect(host=cat_hn,
-				user=cat_usr,
-				password=cat_pw,
-				db=cat_db,
-				charset='utf8mb4',
-				cursorclass=pymysql.cursors.DictCursor)
 	try:
 		# connect and execute the sql statement
 		connection = pymysql.connect(host=cat_hn,
@@ -154,8 +147,8 @@ def update_catalog_with_partitions(config_dict):
 					charset='utf8mb4',
 					cursorclass=pymysql.cursors.DictCursor)
 
-		# print "[SUCCESSFUL CATALOG CONNECTION] <"+connection.host+" - "+connection.db+">", connection
-		# print
+		print "[SUCCESSFUL CATALOG CONNECTION] <"+connection.host+" - "+connection.db+">", connection
+		print
 
 		with connection.cursor() as cursor:
 			# execute every sql command
@@ -198,7 +191,24 @@ def update_catalog_with_partitions(config_dict):
 
 	except:
 			print "couldn't connect to catalog"
-	return node_list
+	if node_list:
+		config_dict['catalog.numnodes'] = len(node_list)
+		# access the list of node dicts
+		for entry in node_list:
+			nodeid = entry["nodeid"]
+
+			config_dict['node'+str(nodeid)+'.hostname'] = entry['nodeurl']
+			config_dict['node'+str(nodeid)+'.partmtd'] = entry['partmtd']
+			config_dict['node'+str(nodeid)+'.partparam1'] = entry['partparam1']
+			config_dict['node'+str(nodeid)+'.partparam2'] = entry['partparam2']
+			config_dict['node'+str(nodeid)+'.driver'] = entry['nodedriver']
+			config_dict['node'+str(nodeid)+'.username'] = entry['nodeuser'] 
+			config_dict['node'+str(nodeid)+'.tname'] = entry['tname']
+			config_dict['node'+str(nodeid)+'.passwd'] = entry['nodepasswd']
+			config_dict['node'+str(nodeid)+'.database'] = entry['nodeurl'].rsplit('/', 1)[-1]
+	else: 
+		config_dict['catalog.numnodes'] = 0
+	return config_dict
 
 def main():
 	parser = argparse.ArgumentParser()
@@ -207,24 +217,45 @@ def main():
 	args = parser.parse_args()
 
 	# read the config file into a dictionary
+	print "READING CONFIG FILE...".center(80, " ")
+	print
 	config_dict = get_partition_config(args.configfile)
+	print
+	print "-" * 80
+	print
 
+	# update the catalog
+	print "UPDATING CATALOG...".center(80, " ")
+	print
 	node_list = update_catalog_with_partitions(config_dict)
-	print_pretty_dict(node_list)
+	print
+	print "-" * 80
+	print
+	
 
 	# return a list of connections to all nodes
-	# node_connections = get_connections(nodes_dict)
-	# if len(node_connections) == 0:
-		# print "Terminating due to connection failures..."
-		# sys.exit()
+	print "CREATING CONNECTIONS...".center(80, " ")
+	print
+	node_connections = get_connections(config_dict)
+	if len(node_connections) == 0:
+		print "Terminating due to connection failures..."
+		sys.exit()
+	print
+	for c in node_connections:
+		print "HOST: " + c.host + " DB: " + c.db + " " + str(c)
+	print
+	print "-" * 80
+	print
 
 	# read the csv file into a list
+	tablename = "NotReal"
 	csv_list = loadCSV(args.configfile, args.csvfile)
-	
+	sql = "INSERT INTO %s  VALUES(%s,%s,%s);" % (tablename, csv_list[0][0], csv_list[0][1], csv_list[0][2],)
+	print sql
 	# print "Printing csv list:"
 	# for x in csv_list:
-	# 	for y in x:
-	# 		print y
+		# for y in x:
+		# print x
 	
 	#update the catalog using the stored table name in the node_dict
 	# print nodes_dict['catalog.hostname']

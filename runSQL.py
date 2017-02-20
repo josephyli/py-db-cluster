@@ -99,8 +99,8 @@ def get_catalog_config(configfilename):
 		print("No config file found at", configfilename)
 		return null
 
-# reads metadata about the nodes in a catalog database
-# using a list of tables that need to be created in the catalog
+# reads metadata about the nodes from the catalog database
+# uses a list of tables that need to be created in the catalog to know what nodes are needed
 def read_catalog(config_dict, table_list):
 	cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
 	cat_usr = config_dict['catalog.username']
@@ -144,8 +144,11 @@ def read_catalog(config_dict, table_list):
 
 	except:
 			print "couldn't connect to catalog"
+
+	# if node list is not empty, then pass it into the config_dict
 	if node_list:
 		config_dict['catalog.numnodes'] = len(node_list)
+		# access the list of node dicts
 		for entry in node_list:
 			nodeid = entry["nodeid"]
 
