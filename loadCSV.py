@@ -1,12 +1,13 @@
-import re 
 import argparse
-import sys
 import csv
 import os
 import pymysql.cursors
-from pymysql import OperationalError
+import re 
+import sys
+
 from ConfigParser import SafeConfigParser
 from StringIO import StringIO
+from pymysql import OperationalError
 
 def loadCSV(configfilename, csvfilename):
 	csv_list = []

@@ -1,12 +1,13 @@
 import argparse
-import sys
-import re
+import csv
 import os
 import pymysql.cursors
-from pymysql import OperationalError
+import re
+import sys
+
 from ConfigParser import SafeConfigParser
 from StringIO import StringIO
-import csv
+from pymysql import OperationalError
 
 # returns a list of ddl commands as strings
 def read_DDL(ddlfilename):
