@@ -11,8 +11,12 @@ from pymysql import OperationalError
 
 def loadCSV(configfilename, csvfilename):
 	csv_list = []
-	with open(csvfilename, 'rb') as f:
-		for row in csv.reader(f, delimiter=','):
+	with open(csvfilename, 'rb') as csvfile:
+		dialect = csv.Sniffer().sniff(csvfile.read(), delimiters=',|;')
+		csvfile.seek(0)
+		reader = csv.reader(csvfile, dialect)
+
+		for row in reader:
 			csv_list.append(row)
 	return csv_list
 
@@ -250,12 +254,12 @@ def main():
 	# read the csv file into a list
 	tablename = "NotReal"
 	csv_list = loadCSV(args.configfile, args.csvfile)
-	sql = "INSERT INTO %s  VALUES(%s,%s,%s);" % (tablename, csv_list[0][0], csv_list[0][1], csv_list[0][2],)
-	print sql
 	# print "Printing csv list:"
 	# for x in csv_list:
 		# for y in x:
 		# print x
+	sql = "INSERT INTO %s  VALUES(%s,%s,%s);", (tablename, csv_list[0][0], csv_list[0][1], csv_list[0][2],)
+	print sql
 	
 	#update the catalog using the stored table name in the node_dict
 	# print nodes_dict['catalog.hostname']
