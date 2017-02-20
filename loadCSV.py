@@ -254,17 +254,21 @@ def main():
 	# read the csv file into a list
 	tablename = "NotReal"
 	csv_list = loadCSV(args.configfile, args.csvfile)
-	# print "Printing csv list:"
-	# for x in csv_list:
-		# for y in x:
-		# print x
-	sql = "INSERT INTO %s  VALUES(%s,%s,%s);", (tablename, csv_list[0][0], csv_list[0][1], csv_list[0][2],)
+	sql = "INSERT INTO %s VALUES(%s,%s,%s);", (tablename, csv_list[0][0], csv_list[0][1], csv_list[0][2],)
 	print sql
-	
+
+	# handle different types of partitioning methods
+	if config_dict['catalog.partition.method'] == 0: # if no partitioning scheme is set - csv is propagated to all nodes
+		pass
+	elif config_dict['catalog.partition.method'] == 1: # if range partitioning is set
+		pass
+	elif config_dict['catalog.partition.method'] == 2: # if hash partitioning is set
+		print "Inserting into the tables based on hash"
+		hash_insert(csv_list, node_connections)
+
 	#update the catalog using the stored table name in the node_dict
 	# print nodes_dict['catalog.hostname']
-	
-	
+
 
 if __name__ == "__main__":
 	main()
