@@ -1,2 +1,2 @@
 SELECT *
-FROM Books;
+FROM BOOKS;
