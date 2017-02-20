@@ -1,2 +1,2 @@
 #!/bin/bash
-python runSQL.py "$1" "$2" "$3"
+python runSQL.py "$1" "$2"

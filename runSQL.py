@@ -1,30 +1,24 @@
 import argparse
-import sys
-import re
+import csv
 import os
 import pymysql.cursors
-from pymysql import OperationalError
+import re
+import sqlparse
+import sys
+
 from ConfigParser import SafeConfigParser
 from StringIO import StringIO
-import csv
-
-# returns a list of ddl commands as strings
-def read_DDL(ddlfilename):
-	f = open(ddlfilename, 'r')
-	ddlfile = f.read()
-	f.close()
-	temp = filter(None, ddlfile.split(';'))
-	sql_commands = []
-	# filter out white space from file input
-	for c in temp:
-		if c != "\n":
-			sql_commands.append(c)
-	return sql_commands
+from pymysql import OperationalError
+from sqlparse.sql import Identifier
+from sqlparse.sql import IdentifierList
+from sqlparse.tokens import DML
+from sqlparse.tokens import Keyword
 
 # returns a list of sql commands as strings
 def read_SQL(sqlfilename):
 	f = open(sqlfilename, 'r')
 	sqlfile = f.read()
+	sqlfile.strip()
 	f.close()
 	temp = filter(None, sqlfile.split(';'))
 	sql_commands = []
@@ -34,9 +28,56 @@ def read_SQL(sqlfilename):
 			sql_commands.append(c)
 	return sql_commands
 
-# returns a dict with all nodes information
+def get_tables(sql_commands):
+	from itertools import chain
+	tables = []
+	for command in sql_commands:
+		tables.append(extract_tables(command))
+	#extract the nested lists
+	return list(chain.from_iterable(tables))
+
+# ------- parsing table code-------------------------------------------------
+def extract_table_identifiers(token_stream):
+	for item in token_stream:
+		if isinstance(item, IdentifierList):
+			for identifier in item.get_identifiers():
+				yield identifier.get_name()
+		elif isinstance(item, Identifier):
+			yield item.get_name()
+		elif item.ttype is Keyword:
+			yield item.value
+
+
+def extract_tables(sql):
+	stream = extract_from_part(sqlparse.parse(sql)[0])
+	return list(extract_table_identifiers(stream))
+
+def extract_from_part(parsed):
+	from_seen = False
+	for item in parsed.tokens:
+		if from_seen:
+			if is_subselect(item):
+				for x in extract_from_part(item):
+					yield x
+			elif item.ttype is Keyword:
+				raise StopIteration
+			else:
+				yield item
+		elif item.ttype is Keyword and item.value.upper() == 'FROM':
+			from_seen = True
+
+def is_subselect(parsed):
+	if not parsed.is_group:
+		return False
+	for item in parsed.tokens:
+		if item.ttype is DML and item.value.upper() == 'SELECT':
+			return True
+	return False
+# --------end of parsing table code--------------------------------------
+
+# returns a dict with all catalog information
 # responsible for parsing the config file
-def get_node_config(configfilename):
+def get_catalog_config(configfilename):
 	config_dict = {}
 
 	if os.path.isfile(configfilename):
@@ -53,72 +94,77 @@ def get_node_config(configfilename):
 			config_dict['catalog.passwd'] = cp.get('fakesection', 'catalog.passwd')
 			config_dict['catalog.database'] = cp.get('fakesection', 'catalog.hostname').rsplit('/', 1)[-1]
 
-			# read the number of nodes
-			numnodes = cp.getint('fakesection', 'numnodes')
-			config_dict['catalog.numnodes'] = numnodes
-
-			# read node data and print out info
-			for node in range(1, numnodes + 1):
-				for candidate in ['driver', 'hostname', 'username', 'passwd', 'database']:
-					# test if candidate exists before adding to dictionary
-					if cp.has_option('fakesection', "node" + str(node) + "." + candidate):
-						# print cp.get('fakesection', "node" + str(node) + "." + candidate)
-						config_dict["node" + str(node) + "." + candidate] = cp.get('fakesection', "node" + str(node) + "." + candidate)
-					else:
-						if candidate == "database":
-							config_dict["node" + str(node) + ".database"] = cp.get('fakesection', "node" + str(node) + ".hostname").rsplit('/', 1)[-1]
-						else: 
-							print "error: candidate not found"
 			return config_dict
 	else:
 		print("No config file found at", configfilename)
 		return null
 
-# stores metadata about the DDL in a catalog database
-# using a list of tables that need to be created in the catalog
-def update_catalog(config_dict, table_list):
+# reads metadata about the nodes from the catalog database
+# uses a list of tables that need to be created in the catalog to know what nodes are needed
+def read_catalog(config_dict, table_list):
 	cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
 	cat_usr = config_dict['catalog.username']
 	cat_pw = config_dict['catalog.passwd']
 	cat_dr = config_dict['catalog.driver']
 	cat_db = config_dict['catalog.database']
 
-	sql = ["DROP TABLE dtables", "CREATE TABLE dtables (tname char(32), nodedriver char(64), nodeurl char(128), nodeuser char(16), nodepasswd char(16), partmtd int, nodeid int, partcol char(32), partparam1 char(32), partparam2 char(32));"]
+	# make the sql to select all nodes from the tables list
+	sql = "select * from dtables where tname = \'" + table_list[0] + "\'"
+	itercars = iter(table_list)
+	next(itercars)
+	for car in itercars:
+		sql = sql + " OR tname = \'" + car + '\''
+	print sql
 
-	# prepares the sql statement to insert into catalog the tables in each node
-	for table in table_list:
-		for i in range(config_dict["catalog.numnodes"]):
-				hn = config_dict['node'+str(i + 1)+'.hostname']
-				usr = config_dict['node'+str(i + 1)+'.username']
-				pw = config_dict['node'+str(i + 1)+'.passwd']
-				dr = config_dict['node'+str(i + 1)+'.driver']
-
-				sql.append("INSERT INTO dtables VALUES (\'%s\', \'%s\', \'%s\', \'%s\',\'%s\', NULL,%d,NULL,NULL,NULL);" % (table,dr,hn,usr,pw,i+1))
+	# read the node data
+	node_list = []
 	try:
-		# connect and execute the sql statement
 		connection = pymysql.connect(host=cat_hn,
 					user=cat_usr,
 					password=cat_pw,
 					db=cat_db,
 					charset='utf8mb4',
 					cursorclass=pymysql.cursors.DictCursor)
-
 		print "[SUCCESSFUL CATALOG CONNECTION] <"+connection.host+" - "+connection.db+">", connection
 		print
 
 		with connection.cursor() as cursor:
-			# execute every sql command
-			for command in sql:
-				try:
-					print command
-					print
-					cursor.execute(command.strip() + ';')
-					connection.commit()
-				except OperationalError, msg:
-					print "Command skipped: ", msg
-	except pymysql.err.InternalError as d:
-		print "[FAILED TO UPDATE CATALOG]"
-		print d
+			# select every node with the table name from the sqlfile
+			try:
+				cursor.execute(sql.strip() + ';')
+				while True:
+					row = cursor.fetchone()
+					if row == None:
+						print
+						break
+					node_list.append(row)
+			except OperationalError, msg:
+				print "Command skipped: ", msg
+				connection.commit()
+
+	except:
+			print "couldn't connect to catalog"
+
+	# if node list is not empty, then pass it into the config_dict
+	if node_list:
+		config_dict['catalog.numnodes'] = len(node_list)
+		# access the list of node dicts
+		for entry in node_list:
+			nodeid = entry["nodeid"]
+
+			config_dict['node'+str(nodeid)+'.hostname'] = entry['nodeurl']
+			config_dict['node'+str(nodeid)+'.partmtd'] = entry['partmtd']
+			config_dict['node'+str(nodeid)+'.partparam1'] = entry['partparam1']
+			config_dict['node'+str(nodeid)+'.partparam2'] = entry['partparam2']
+			config_dict['node'+str(nodeid)+'.driver'] = entry['nodedriver']
+			config_dict['node'+str(nodeid)+'.username'] = entry['nodeuser'] 
+			config_dict['node'+str(nodeid)+'.tname'] = entry['tname']
+			config_dict['node'+str(nodeid)+'.passwd'] = entry['nodepasswd']
+			config_dict['node'+str(nodeid)+'.database'] = entry['nodeurl'].rsplit('/', 1)[-1]
+	else: 
+		config_dict['catalog.numnodes'] = 0
+	return config_dict
+	
 
 # returns a list of connections to all nodes
 def get_connections(config_dict):
@@ -175,6 +221,7 @@ def run_sql_commands_against_node(connection, sql_commands):
 				while True:
 					row = cursor.fetchone()
 					if row == None:
+						print "No results found in " + connection.db
 						break
 					print(row)
 			connection.commit()
@@ -190,7 +237,6 @@ def print_pretty_dict(idict):
 def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument("configfile", help="Location of Config File, See the README for more information")
-	parser.add_argument("ddlfile", help="Location of DDL File, See the README for more information")
 	parser.add_argument("sqlfile", help="Location of SQL File, See the README for more information")
 	args = parser.parse_args()
 	print
@@ -201,15 +247,30 @@ def main():
 	temp = "PARSING " + str(args.configfile) + "..."
 	print
 	print temp.center(80, " ")
-	nodes_dict = get_node_config(args.configfile)
-	print_pretty_dict(nodes_dict)
+	catalog_dict = get_catalog_config(args.configfile)
+	print_pretty_dict(catalog_dict)
+
+	# read sql commands for a list of tables -----------------------------------
+	sql_commands = read_SQL(args.sqlfile)
+	table_list = get_tables(sql_commands)
 	print
 	print "-" * 80
 	print
 
+	# read catalog for a list of node -----------------------------------
+	print "READING CATALOG...".center(80, " ")
+	print
+	nodes_dict = read_catalog(catalog_dict, table_list);
+	print_pretty_dict(nodes_dict)
+	print
+	print "-" * 80
+	print
+	
+	
 	# return a list of connections to all nodes --------------------------------
 	print "CREATING CONNECTIONS...".center(80, " ")
 	print
+	
 	node_connections = get_connections(nodes_dict)
 	# if no connections were made, terminate the program, comment this out for testing
 	if len(node_connections) == 0:
@@ -223,43 +284,13 @@ def main():
 	print "-" * 80
 	print
 
-	# read DDL and return a list of sql commands -------------------------------
-	print "PARSING SQL COMMANDS...".center(80, " ")
-	print
-	sql_commands = read_DDL(args.ddlfile)
-	# list of tables is used to update catalog with metadata
-	table_list = []
-	for command in sql_commands:
-		if command.split()[0].upper() == "CREATE":
-			table_list.append((re.split('\s|\(',command)[2]))
-	print "[SQL COMMANDS]:"
-	for s in sql_commands:
-		print s.strip()
-	print
-	print "TABLES:"
-	print table_list
-	print
-	print "-" * 80
-	print
-
-	# update catalog  ----------------------------------------------------------
-	print "UPDATING CATALOG...".center(80, " ")
-	print
-	update_catalog(nodes_dict,table_list)
-	print
-	print "-" * 80
-	print
-
-	# run the commands against the nodes ---------------------------------------
-	print "EXECUTING DDL COMMANDS ON NODES...".center(80, " ")
-	print
-	run_commmands_against_nodes(node_connections, sql_commands)
-
 	# run the commands against the nodes ---------------------------------------
 	print "EXECUTING SQL COMMANDS ON NODES...".center(80, " ")
 	print
 	node_connections = get_connections(nodes_dict)
-	sql_commands = read_SQL(args.sqlfile)
+	if len(node_connections) == 0:
+		print "Terminating due to connection failures..."
+		sys.exit()
 	run_commmands_against_nodes(node_connections, sql_commands)
 
 

@@ -1,11 +1,12 @@
 import argparse
-import sys
-import re
 import os
 import pymysql.cursors
-from pymysql import OperationalError
+import re
+import sys
+
 from ConfigParser import SafeConfigParser
 from StringIO import StringIO
+from pymysql import OperationalError
 
 # returns a list of sql commands as strings
 def read_DDL(ddlfilename):
@@ -69,7 +70,7 @@ def update_catalog(config_dict, table_list):
 	cat_dr = config_dict['catalog.driver']
 	cat_db = config_dict['catalog.database']
 
-	sql = ["DROP TABLE dtables", "CREATE TABLE dtables (tname char(32), nodedriver char(64), nodeurl char(128), nodeuser char(16), nodepasswd char(16), partmtd int, nodeid int, partcol char(32), partparam1 char(32), partparam2 char(32));"]
+	sql = ["DROP TABLE IF EXISTS dtables", "CREATE TABLE dtables (tname char(32), nodedriver char(64), nodeurl char(128), nodeuser char(16), nodepasswd char(16), partmtd int, nodeid int, partcol char(32), partparam1 char(32), partparam2 char(32));"]
 
 	# prepares the sql statement to insert into catalog the tables in each node
 	for table in table_list:
