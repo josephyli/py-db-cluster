@@ -13,16 +13,6 @@ In addition, a catalog database on the controller node stores metadata about wha
 - [pip](https://pypi.python.org/pypi/pip)
 - Root access to mysql server environments
 
-For testing purposes, a Vagrantfile has been created that automatically installs and creates a MySql node.
-This testing environment requires the following to be installed:
-
-- [Virtual Box](https://www.virtualbox.org/)
-- [Vagrant](https://www.vagrantup.com/)
-
-If the vagrant environment is not used, be sure that there are databases created in the mysql environments.
-The name of the database and the credentials are specified in the config file passed in at run time.
-Follow the clustercfg.ini listed below as a template.
-
 ## Installation
 
 - Install the pip requirements onto your local machine or into a [virtual environment](http://docs.python-guide.org/en/latest/dev/virtualenvs/).
@@ -30,15 +20,6 @@ Follow the clustercfg.ini listed below as a template.
 ```bash
 sudo pip install -r requirements.txt
 ```
-
-Ensure that the contents in **Vagrantfile** and **vagrantinstall.sh** are to your liking.
-Create the environment:
-
-```bash
-vagrant up
-```
-
-**Note that the Vagrant environment in its default state expects to be on a class C private network (192.168.0.0) working off a bridged adaptor**
 
 ## Usage
 
@@ -112,11 +93,11 @@ This operation is not multi-threaded.
 ## Example Output
 
 ```bash
-$ python runDDL.py vagrantclustercfg.ini sql/dropbooks.sql
+$ python runDDL.py configfile.ini sql/dropbooks.sql
 
 ================================================================================
 
-parsing vagrantclustercfg.ini into a dict...
+parsing configfile.ini into a dict...
 {
  "node1.passwd": "root",
  "catalog.driver": "com.ibm.db2.jcc.DB2Driver",
