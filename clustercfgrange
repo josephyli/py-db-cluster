@@ -5,11 +5,11 @@ catalog.passwd=mypasswd
 
 tablename=books
 partition.method=range
-partition.column=age
+partition.column=isbn
 
 numnodes=2
 partition.node1.param1=1
-partition.node1.param2=10
+partition.node1.param2=500000000
 
-partition.node2.param1=10
-partition.node2.param2=20
+partition.node2.param1=500000000
+partition.node2.param2=999999999
