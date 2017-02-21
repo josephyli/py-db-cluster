@@ -345,8 +345,8 @@ def hash_insert(csv_list, node_connections, config_dict):
 			cursor.execute(sql_statement)
 			res = cursor.fetchone()
 			node_connections[nodeid].commit()
-			print res
-			#cursor.close()
+			# print res
+	cursor.close()
 
 
 
