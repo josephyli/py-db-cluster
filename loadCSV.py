@@ -253,17 +253,22 @@ def range_insert(csv_list, node_connections, config_dict):
 	print
 	print "Index",partition_index,"of",columns,"is the partition column"
 	print 
-
+	numnodes = config_dict['catalog.numnodes']
 	for i in range(len(csv_list)):
-		nodeid = int(csv_list[i][partition_index]) % int(config_dict['catalog.numnodes'])
-		with node_connections[nodeid].cursor() as cursor:
-			sql_statement = "INSERT INTO %s VALUES (%d,\'%s\',\'%s\') ;" % (config_dict['catalog.tablename'].upper(), int(csv_list[i][0]), csv_list[i][1], csv_list[i][2])
-			print sql_statement
-			cursor.execute(sql_statement)
-			res = cursor.fetchone()
-			node_connections[nodeid].commit()
-			print res
-			#cursor.close()
+		for node_index in numnodes:
+			print("index: ", int(csv_list[i][partition_index]), "node_index: ", node_index)
+			# if the item in csv is greater than the lower limit (param1) but smaller than the upper limit (param2) of the node_index 
+			if ((int(csv_list[i][partition_index]) > int(config_dict['partition.node'+str(node_index)+'.param1'])) and (int(csv_list[i][partition_index]) <= int(config_dict['partition.node'+str(node_index)+'.param2']))):
+				with node_connections[node_index-1].cursor() as cursor:
+					sql_statement = "INSERT INTO %s VALUES (%d,\'%s\',\'%s\') ;" % (config_dict['catalog.tablename'].upper(), int(csv_list[i][0]), csv_list[i][1], csv_list[i][2])
+					print sql_statement
+					cursor.execute(sql_statement)
+					res = cursor.fetchone()
+					node_connections[node_index-1].commit()
+			break;
+				#cursor.close()
+			
+
 
 def hash_insert(csv_list, node_connections, config_dict):
 	res = ""
