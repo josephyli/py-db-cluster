@@ -51,41 +51,80 @@ def get_partition_config(configfilename):
 
 			config_dict['catalog.partition.column'] = cp.get('fakesection', 'partition.column')
 
+			numnodes = 0
 			# read the number of nodes... if it's listed
 			if cp.has_option('fakesection', 'numnodes'):
 				numnodes = cp.getint('fakesection', 'numnodes')
 				config_dict['catalog.numnodes'] = numnodes
+			else: 
+				# connect to catalog to get the supposed number of nodes
+				cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
+				cat_usr = config_dict['catalog.username']
+				cat_pw = config_dict['catalog.passwd']
+				cat_dr = config_dict['catalog.driver']
+				cat_db = config_dict['catalog.database']
 
-				# read depending on partition method
-				if (partition_method_string == 'notpartition'):
-					for node in range(1, numnodes + 1):
-						for candidate in ['driver', 'hostname', 'username', 'passwd', 'database']:
-							# test if candidate exists before adding to dictionary
-							if cp.has_option('fakesection', "node" + str(node) + "." + candidate):
-								# print cp.get('fakesection', "node" + str(node) + "." + candidate)
-								config_dict["node" + str(node) + "." + candidate] = cp.get('fakesection', "node" + str(node) + "." + candidate)
+				sql = "SELECT MAX(nodeid) AS nodeid FROM dtables;"
+
+				connection = pymysql.connect(host=cat_hn,
+					user=cat_usr,
+					password=cat_pw,
+					db=cat_db,
+					charset='utf8mb4',
+					cursorclass=pymysql.cursors.DictCursor)
+				with connection.cursor() as cursor:
+					# execute every sql command
+					try:
+						cursor.execute(sql.strip() + ';')
+						while True:
+							row = cursor.fetchone()
+							if row == None:
+								break
+							numnodes = row['nodeid']
+							config_dict["catalog.numnodes"] = numnodes
+					except OperationalError, msg:
+						print "Command skipped: ", msg
+						connection.commit()
+
+			# read depending on partition method
+			if (partition_method_string == 'notpartition'):
+				for node in range(1, numnodes + 1):
+					for candidate in ['driver', 'hostname', 'username', 'passwd', 'database']:
+						# test if candidate exists before adding to dictionary
+						if cp.has_option('fakesection', "node" + str(node) + "." + candidate):
+							# print cp.get('fakesection', "node" + str(node) + "." + candidate)
+							config_dict["node" + str(node) + "." + candidate] = cp.get('fakesection', "node" + str(node) + "." + candidate)
+						else:
+							if candidate == "database":
+								config_dict["node" + str(node) + ".database"] = cp.get('fakesection', "node" + str(node) + ".hostname").rsplit('/', 1)[-1]
 							else:
-								if candidate == "database":
-									config_dict["node" + str(node) + ".database"] = cp.get('fakesection', "node" + str(node) + ".hostname").rsplit('/', 1)[-1]
-								else:
-									print "error: candidate not found"
-					return config_dict
+								print "error: candidate not found"
+				return config_dict
 
-				elif (partition_method_string == 'range'):
-					config_dict['partition.column'] = cp.get('fakesection', 'partition.column')
-					# read node data and print out info
-					for node in range(1, numnodes + 1):
-						for parameter in ['param1', 'param2']:
-							# test if candidate exists before adding to dictionary
-							if cp.has_option('fakesection', "partition.node" + str(node) + "." + parameter):
-								config_dict["partition.node" + str(node) + "." + parameter] = cp.getint('fakesection', "partition.node" + str(node) + "." + parameter)
-					return config_dict
+			elif (partition_method_string == 'range'):
+				config_dict['partition.column'] = cp.get('fakesection', 'partition.column')
+				# read node data and compare to dtables
+				node = 1
+				while (cp.has_option('fakesection', "partition.node" + str(node) + ".param1")) or (cp.has_option('fakesection', "partition.node" + str(node) + ".param2")): 
+					for parameter in ['param1', 'param2']:
+						# test if candidate exists before adding to dictionary
+						if cp.has_option('fakesection', "partition.node" + str(node) + "." + parameter):
+							config_dict["partition.node" + str(node) + "." + parameter] = cp.getint('fakesection', "partition.node" + str(node) + "." + parameter)
+					node += 1
+				# check if dtables matches number in partition
+				if numnodes != node -1:
+					print "Error! dtables's number of nodes does not match the partitioning. Exiting..."
+					sys.exit(1)
+				return config_dict
 
 			elif (cp.get('fakesection', 'partition.method') == 'hash'):
 				print "Loading the CSV based hash partitioning"
 				config_dict['catalog.numnodes'] = cp.getint('fakesection', 'partition.param1')
 				config_dict['partition.column'] = cp.get('fakesection', 'partition.column')
-				config_dict['partition.param1'] = cp.get('fakesection', 'partition.param1')
+				config_dict['partition.param1'] = cp.getint('fakesection', 'partition.param1')
+				if numnodes != config_dict['partition.param1']:
+					print "Error! dtables's number of nodes does not match the partitioning. Exiting..."
+					sys.exit(1)
 				return config_dict
 	else:
 		print("No config file found at", configfilename)
@@ -150,12 +189,12 @@ def update_catalog_with_partitions(config_dict):
 	else:
 		# prepares the sql statement to insert into catalog the tables in each node for range
 		for nodeid in range(1, number_of_nodes + 1):
-			# hn = config_dict['node'+str(i + 1)+'.hostname']
-			# usr = config_dict['node'+str(i + 1)+'.username']
-			# pw = config_dict['node'+str(i + 1)+'.passwd']
-			# dr = config_dict['node'+str(i + 1)+'.driver']
-			p1 = config_dict['partition.node'+str(nodeid)+'.param1']
-			p2 = config_dict['partition.node'+str(nodeid)+'.param2']
+			try: 
+				p1 = config_dict['partition.node'+str(nodeid)+'.param1']
+				p2 = config_dict['partition.node'+str(nodeid)+'.param2']
+			except KeyError:
+				print "Partitions in configuration file do not match the number of nodes in catalog... Exiting"
+				sys.exit(1)
 			sql.append("UPDATE dtables SET partmtd = %d, partcol = \'%s\', partparam1 = %d, partparam2 = %d WHERE tname=\'%s\' AND nodeid = %d; " % (pm, pc, p1, p2, tablename, nodeid))
 	try:
 		# connect and execute the sql statement
