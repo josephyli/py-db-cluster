@@ -72,6 +72,7 @@ def get_partition_config(configfilename):
 					return config_dict
 
 				elif (partition_method_string == 'range'):
+					config_dict['partition.column'] = cp.get('fakesection', 'partition.column')
 					# read node data and print out info
 					for node in range(1, numnodes + 1):
 						for parameter in ['param1', 'param2']:
@@ -227,6 +228,43 @@ def update_catalog_with_partitions(config_dict):
 		config_dict['catalog.numnodes'] = 0
 	return config_dict
 
+def range_insert(csv_list, node_connections, config_dict):
+	res = ""
+	columns = []
+
+	# identifying the partition column
+	for connection in node_connections:
+		with connection.cursor() as cursor:
+			try:
+				cursor.execute("SHOW COLUMNS IN " +config_dict['catalog.tablename'].upper() + ";")
+				res = cursor.fetchall()
+				connection.commit()
+			except pymysql.MySQLError as e:
+				print e
+	for d in res:
+		columns.append(d['Field'])
+
+	partition_index = 0
+	for f in columns:
+		if f.lower() == config_dict['partition.column'].lower():
+			break
+		partition_index += 1
+
+	print
+	print "Index",partition_index,"of",columns,"is the partition column"
+	print 
+
+	for i in range(len(csv_list)):
+		nodeid = int(csv_list[i][partition_index]) % int(config_dict['catalog.numnodes'])
+		with node_connections[nodeid].cursor() as cursor:
+			sql_statement = "INSERT INTO %s VALUES (%d,\'%s\',\'%s\') ;" % (config_dict['catalog.tablename'].upper(), int(csv_list[i][0]), csv_list[i][1], csv_list[i][2])
+			print sql_statement
+			cursor.execute(sql_statement)
+			res = cursor.fetchone()
+			node_connections[nodeid].commit()
+			print res
+			#cursor.close()
+
 def hash_insert(csv_list, node_connections, config_dict):
 	res = ""
 	columns = []
@@ -256,7 +294,7 @@ def hash_insert(csv_list, node_connections, config_dict):
 	for i in range(len(csv_list)):
 		nodeid = int(csv_list[i][partition_index]) % int(config_dict['catalog.numnodes'])
 		with node_connections[nodeid].cursor() as cursor:
-			sql_statement = "INSERT INTO %s VALUES (\'%s\',\'%s\',\'%s\') ;" % (config_dict['catalog.tablename'].upper(), csv_list[i][0], csv_list[i][1], csv_list[i][2])
+			sql_statement = "INSERT INTO %s VALUES (%d,\'%s\',\'%s\') ;" % (config_dict['catalog.tablename'].upper(), int(csv_list[i][0]), csv_list[i][1], csv_list[i][2])
 			print sql_statement
 			cursor.execute(sql_statement)
 			res = cursor.fetchone()
@@ -307,16 +345,16 @@ def main():
 	print
 
 	# read the csv file into a list
-	tablename = "NotReal"
 	csv_list = loadCSV(args.configfile, args.csvfile)
-	sql = "INSERT INTO %s VALUES(%s,%s,%s);", (tablename, csv_list[0][0], csv_list[0][1], csv_list[0][2],)
-
 
 	# handle different types of partitioning methods
 	if config_dict['catalog.partition.method'] == 0: # if no partitioning scheme is set - csv is propagated to all nodes
 		pass
+
 	elif config_dict['catalog.partition.method'] == 1: # if range partitioning is set
-		pass
+		print "Using Range Partitioning as Partitioning Method..."
+		range_insert(csv_list, node_connections, config_dict)
+
 	elif config_dict['catalog.partition.method'] == 2: # if hash partitioning is set
 		print "Using Hash Partitioning as Partitioning Method..."
 		hash_insert(csv_list, node_connections, config_dict)
