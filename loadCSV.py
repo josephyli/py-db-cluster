@@ -49,7 +49,8 @@ def get_partition_config(configfilename):
 			elif partition_method_string == 'hash':
 				config_dict['catalog.partition.method'] = 2
 
-			config_dict['catalog.partition.column'] = cp.get('fakesection', 'partition.column')
+			if cp.has_option('fakesection', 'numnodes'):
+				config_dict['catalog.partition.column'] = cp.get('fakesection', 'partition.column')
 
 			numnodes = 0
 			# read the number of nodes... if it's listed
@@ -88,20 +89,14 @@ def get_partition_config(configfilename):
 
 			# read depending on partition method
 			if (partition_method_string == 'notpartition'):
-				for node in range(1, numnodes + 1):
-					for candidate in ['driver', 'hostname', 'username', 'passwd', 'database']:
-						# test if candidate exists before adding to dictionary
-						if cp.has_option('fakesection', "node" + str(node) + "." + candidate):
-							# print cp.get('fakesection', "node" + str(node) + "." + candidate)
-							config_dict["node" + str(node) + "." + candidate] = cp.get('fakesection', "node" + str(node) + "." + candidate)
-						else:
-							if candidate == "database":
-								config_dict["node" + str(node) + ".database"] = cp.get('fakesection', "node" + str(node) + ".hostname").rsplit('/', 1)[-1]
-							else:
-								print "error: candidate not found"
+				print "Loading the CSV based not-partitioning"
+				if numnodes != config_dict['catalog.numnodes']:
+					print "Error! dtables's number of nodes does not match the partitioning. Exiting..."
+					sys.exit(1)
 				return config_dict
 
 			elif (partition_method_string == 'range'):
+				print "Loading the CSV based range partitioning"
 				config_dict['partition.column'] = cp.get('fakesection', 'partition.column')
 				# read node data and compare to dtables
 				node = 1
@@ -169,7 +164,10 @@ def update_catalog_with_partitions(config_dict):
 
 	tablename = config_dict['catalog.tablename']
 	pm = config_dict['catalog.partition.method']
-	pc = config_dict['catalog.partition.column']
+	try:
+		pc = config_dict['catalog.partition.column']
+	except KeyError:
+		pass
 
 	try:
 		number_of_nodes = config_dict["catalog.numnodes"]
@@ -186,7 +184,7 @@ def update_catalog_with_partitions(config_dict):
 		for i in range(number_of_nodes):
 			sql.append("UPDATE dtables SET partmtd = 2, partcol = \'%s\', partparam1 = %d, partparam2 = \'NULL\' WHERE tname=\'%s\' AND nodeid = %d; " % (pc, int(p1), tablename, int(i) + 1))
 		print sql
-	else:
+	elif pm == 1:
 		# prepares the sql statement to insert into catalog the tables in each node for range
 		for nodeid in range(1, number_of_nodes + 1):
 			try: 
@@ -265,6 +263,34 @@ def update_catalog_with_partitions(config_dict):
 	else:
 		config_dict['catalog.numnodes'] = 0
 	return config_dict
+
+def not_partitioned_insert(csv_list, node_connections, config_dict):
+	res = ""
+	columns = []
+
+	# identifying the partition column
+	for connection in node_connections:
+		with connection.cursor() as cursor:
+			try:
+				cursor.execute("SHOW COLUMNS IN " +config_dict['catalog.tablename'].upper() + ";")
+				res = cursor.fetchall()
+				connection.commit()
+			except pymysql.MySQLError as e:
+				print e
+	for d in res:
+		columns.append(d['Field'])
+
+	print 
+	numnodes = config_dict['catalog.numnodes']
+	for i in range(len(csv_list)):
+		for node_index in range(1, numnodes+1):
+			with node_connections[node_index-1].cursor() as cursor:
+				sql_statement = "INSERT INTO %s VALUES (%d,\'%s\',\'%s\') ;" % (config_dict['catalog.tablename'].upper(), int(csv_list[i][0]), csv_list[i][1], csv_list[i][2])
+				print sql_statement
+				cursor.execute(sql_statement)
+				res = cursor.fetchone()
+				node_connections[node_index-1].commit()
+	cursor.close()
 
 def range_insert(csv_list, node_connections, config_dict):
 	res = ""
@@ -395,7 +421,9 @@ def main():
 
 	# handle different types of partitioning methods
 	if config_dict['catalog.partition.method'] == 0: # if no partitioning scheme is set - csv is propagated to all nodes
-		pass
+		print "Using Not-Partitioned Partitioning as Partitioning Method..."
+		not_partitioned_insert(csv_list, node_connections, config_dict)
+
 
 	elif config_dict['catalog.partition.method'] == 1: # if range partitioning is set
 		print "Using Range Partitioning as Partitioning Method..."
