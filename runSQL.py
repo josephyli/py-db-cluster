@@ -221,7 +221,6 @@ def run_sql_commands_against_node(connection, sql_commands):
 				while True:
 					row = cursor.fetchone()
 					if row == None:
-						print "No results found in " + connection.db
 						break
 					print(row)
 			connection.commit()
