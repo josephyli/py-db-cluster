@@ -84,7 +84,6 @@ def get_partition_config(configfilename):
 			elif (cp.get('fakesection', 'partition.method') == 'hash'):
 				print "Loading the CSV based hash partitioning"
 				config_dict['catalog.numnodes'] = cp.getint('fakesection', 'partition.param1')
-				config_dict['partition.method'] = "hash"
 				config_dict['partition.column'] = cp.get('fakesection', 'partition.column')
 				config_dict['partition.param1'] = cp.get('fakesection', 'partition.param1')
 				return config_dict
