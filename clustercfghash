@@ -6,5 +6,5 @@ catalog.passwd=mypasswd
 tablename=books
 
 partition.method=hash
-partition.column=age
+partition.column=isbn
 partition.param1=2
