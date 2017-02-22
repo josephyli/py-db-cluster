@@ -49,7 +49,7 @@ def get_partition_config(configfilename):
 			elif partition_method_string == 'hash':
 				config_dict['catalog.partition.method'] = 2
 
-			if cp.has_option('fakesection', 'numnodes'):
+			if cp.has_option('fakesection', 'partition.column'):
 				config_dict['catalog.partition.column'] = cp.get('fakesection', 'partition.column')
 
 			numnodes = 0
@@ -164,11 +164,10 @@ def update_catalog_with_partitions(config_dict):
 
 	tablename = config_dict['catalog.tablename']
 	pm = config_dict['catalog.partition.method']
-	try:
-		pc = config_dict['catalog.partition.column']
-	except KeyError:
-		pass
 
+	if pm != 0:
+		pc = config_dict['catalog.partition.column']
+	
 	try:
 		number_of_nodes = config_dict["catalog.numnodes"]
 	except KeyError as e:
