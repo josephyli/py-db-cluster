@@ -123,12 +123,13 @@ def get_connections(config_dict):
 											db=db,
 											charset='utf8mb4',
 											cursorclass=pymysql.cursors.DictCursor))
-		except:
+		except pymysql.MySQLError as e:
 			print "[NODE", i +  1, "CONNECTION FAILED]:"
 			print "hostname:".rjust(12), re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['node'+str(i + 1)+'.hostname'] )[0]
 			print "username:".rjust(12), config_dict['node'+str(i + 1)+'.username']
 			print "password:".rjust(12), config_dict['node'+str(i + 1)+'.passwd']
 			print "database:".rjust(12), config_dict['node'+str(i + 1)+'.database']
+			print 'Got error {!r}, errno is {}'.format(e, e.args[0])
 			print
 	return connections
 
