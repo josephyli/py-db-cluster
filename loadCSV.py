@@ -264,21 +264,6 @@ def update_catalog_with_partitions(config_dict):
 	return config_dict
 
 def not_partitioned_insert(csv_list, node_connections, config_dict):
-	res = ""
-	columns = []
-
-	# identifying the partition column
-	for connection in node_connections:
-		with connection.cursor() as cursor:
-			try:
-				cursor.execute("SHOW COLUMNS IN " +config_dict['catalog.tablename'].upper() + ";")
-				res = cursor.fetchall()
-				connection.commit()
-			except pymysql.MySQLError as e:
-				print e
-	for d in res:
-		columns.append(d['Field'])
-
 	print 
 	numnodes = config_dict['catalog.numnodes']
 	for i in range(len(csv_list)):
