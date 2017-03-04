@@ -1,1 +1,1 @@
-CREATE TABLE BOOKS(isbn char(14), title char(80), author char(80));
+CREATE TABLE BOOKS(isbn decimal, title char(80), author char(80));
