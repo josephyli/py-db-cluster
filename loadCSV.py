@@ -266,15 +266,23 @@ def update_catalog_with_partitions(config_dict):
 def not_partitioned_insert(csv_list, node_connections, config_dict):
 	print 
 	numnodes = config_dict['catalog.numnodes']
-	for i in range(len(csv_list)):
-		for node_index in range(1, numnodes+1):
-			with node_connections[node_index-1].cursor() as cursor:
-				sql_statement = "INSERT INTO %s VALUES (%d,\'%s\',\'%s\') ;" % (config_dict['catalog.tablename'].upper(), int(csv_list[i][0]), csv_list[i][1], csv_list[i][2])
-				print sql_statement
-				cursor.execute(sql_statement)
-				res = cursor.fetchone()
-				node_connections[node_index-1].commit()
-	cursor.close()
+
+	values = ', '.join(["%s" for i in range(len(csv_list[0]))])
+	sql_statement = "INSERT INTO " + config_dict['catalog.tablename'].upper() + " VALUES ({a})".format(a=values)
+	args = ()
+	try:
+		for i in range(len(csv_list)):
+			args = tuple(csv_list[i]) 
+			for node_index in range(1, numnodes+1):
+				with node_connections[node_index-1].cursor() as cursor:
+					cursor.execute(sql_statement, args)
+					res = cursor.fetchone()
+					node_connections[node_index-1].commit()
+					print "data committed to node " + str(node_index)
+	except pymysql.MySQLError as e:
+		print e
+	finally:
+		cursor.close()
 
 def range_insert(csv_list, node_connections, config_dict):
 	res = ""
@@ -298,26 +306,29 @@ def range_insert(csv_list, node_connections, config_dict):
 			break
 		partition_index += 1
 
-	print
-	print "Index",partition_index,"of",columns,"is the partition column"
-	print 
+	# print "Index",partition_index,"of",columns,"is the partition column"
 	numnodes = config_dict['catalog.numnodes']
-	for i in range(len(csv_list)):
-		for node_index in range(1, numnodes+1):
-			# print("index: ", int(csv_list[i][partition_index]), "node_index: ", node_index)
-			# print("partition.node"+str(node_index)+".param1", int(config_dict['partition.node'+str(node_index)+'.param1']), "partition.node"+str(node_index)+".param2", int(config_dict['partition.node'+str(node_index)+'.param2']))
 
-			# if the item in csv is greater than the lower limit (param1) but smaller than the upper limit (param2) of the node_index 
-			if ((int(csv_list[i][partition_index]) > int(config_dict['partition.node'+str(node_index)+'.param1'])) and (int(csv_list[i][partition_index]) <= int(config_dict['partition.node'+str(node_index)+'.param2']))):
-				with node_connections[node_index-1].cursor() as cursor:
-					sql_statement = "INSERT INTO %s VALUES (%d,\'%s\',\'%s\') ;" % (config_dict['catalog.tablename'].upper(), int(csv_list[i][0]), csv_list[i][1], csv_list[i][2])
-					print sql_statement
-					cursor.execute(sql_statement)
-					res = cursor.fetchone()
-					node_connections[node_index-1].commit()
-					# print "committed to " + str(node_index-1)
-			
-	cursor.close()
+	try:
+		# construct the sql_statement
+		values = ', '.join(["%s" for i in columns])
+		sql_statement = "INSERT INTO " + config_dict['catalog.tablename'].upper() + " VALUES ({a})".format(a=values)
+		args = ()
+
+		for i in range(len(csv_list)):
+			args = tuple(csv_list[i]) 
+			for node_index in range(1, numnodes+1):
+				# if the item in csv is greater than the lower limit (param1) but smaller than the upper limit (param2) of the node_index 
+				if ((int(csv_list[i][partition_index]) > int(config_dict['partition.node'+str(node_index)+'.param1'])) and (int(csv_list[i][partition_index]) <= int(config_dict['partition.node'+str(node_index)+'.param2']))):
+					with node_connections[node_index-1].cursor() as cursor:
+						cursor.execute(sql_statement,args)
+						res = cursor.fetchone()
+						node_connections[node_index-1].commit()
+						print "data committed to node " + str(node_index)
+	except pymysql.MySQLError as e:
+		print e
+	finally:
+		cursor.close()
 			
 
 
@@ -343,20 +354,29 @@ def hash_insert(csv_list, node_connections, config_dict):
 			break
 		partition_index += 1
 
-	print
 	print "Index",partition_index,"of",columns,"is the partition column"
-	print
 
-	for i in range(len(csv_list)):
-		nodeid = int(csv_list[i][partition_index]) % int(config_dict['catalog.numnodes'])
-		with node_connections[nodeid].cursor() as cursor:
-			sql_statement = "INSERT INTO %s VALUES (%d,\'%s\',\'%s\') ;" % (config_dict['catalog.tablename'].upper(), int(csv_list[i][0]), csv_list[i][1], csv_list[i][2])
-			print sql_statement
-			cursor.execute(sql_statement)
-			res = cursor.fetchone()
-			node_connections[nodeid].commit()
-			# print res
-	cursor.close()
+	try:
+		# construct the sql_statement
+		values = ', '.join(["%s" for i in columns])
+		sql_statement = "INSERT INTO " + config_dict['catalog.tablename'].upper() + " VALUES ({a})".format(a=values)
+		args = ()
+
+		for i in range(len(csv_list)):		
+			# convert each row into a tuple to be passed
+			args = tuple(csv_list[i]) 
+
+			nodeid = int(csv_list[i][partition_index]) % int(config_dict['catalog.numnodes'])
+			with node_connections[nodeid].cursor() as cursor:
+				cursor.execute(sql_statement, args)
+				res = cursor.fetchone()
+				node_connections[nodeid].commit()
+				print "data committed to node " + str(nodeid + 1)
+	except pymysql.MySQLError as e:
+		print e
+	finally:
+		cursor.close()
+	
 
 
 
