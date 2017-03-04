@@ -1,5 +1,5 @@
+import threading
 import argparse
-import csv
 import os
 import pymysql.cursors
 import re
@@ -77,7 +77,7 @@ def is_subselect(parsed):
 
 # returns a dict with all catalog information
 # responsible for parsing the config file
-def get_catalog_config(configfilename):
+def get_config(configfilename):
 	config_dict = {}
 
 	if os.path.isfile(configfilename):
@@ -93,6 +93,12 @@ def get_catalog_config(configfilename):
 			config_dict['catalog.username'] = cp.get('fakesection', 'catalog.username')
 			config_dict['catalog.passwd'] = cp.get('fakesection', 'catalog.passwd')
 			config_dict['catalog.database'] = cp.get('fakesection', 'catalog.hostname').rsplit('/', 1)[-1]
+
+			config_dict['localnode.driver'] = cp.get('fakesection', 'localnode.driver')
+			config_dict['localnode.hostname'] = cp.get('fakesection', 'localnode.hostname')
+			config_dict['localnode.username'] = cp.get('fakesection', 'localnode.username')
+			config_dict['localnode.passwd'] = cp.get('fakesection', 'localnode.passwd')
+			config_dict['localnode.database'] = cp.get('fakesection', 'localnode.hostname').rsplit('/', 1)[-1]
 
 			return config_dict
 	else:
@@ -218,16 +224,33 @@ def run_sql_commands_against_node(connection, sql_commands):
 		try:
 			for c in sql_commands:
 				cursor.execute(c.strip() + ';')
-				while True:
-					row = cursor.fetchone()
-					if row == None:
-						break
-					print(row)
+				cols = set()
+				# while True:
+				d = cursor.fetchall()
+				if d == None:
+					break
+				printTable(d)
+
 			connection.commit()
+			print
 			print "[JOB SUCCESSFUL] <"+connection.host+ " - " + connection.db+ ">"
 			connection.close()
 		except pymysql.MySQLError as e:
 			print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.args[0])
+
+# somewhat based on http://stackoverflow.com/questions/17330139/python-printing-a-dictionary-as-a-horizontal-table-with-headers
+def printTable(myDict, colList=None):
+	some_lock = threading.Lock()
+	with some_lock:
+		if not colList: 
+			colList = list(myDict[0].keys() if myDict else [])
+		myList = [] 
+		for item in myDict: 
+			myList.append([str(item[col] or '') for col in colList])
+		colSize = [max(map(len,col)) for col in zip(*myList)]
+		formatStr = ' '.join(["{{:<{}}}".format(i+5) for i in colSize])
+		# myList.insert(1, ['-' * i for i in colSize]) # Seperating line
+		for item in myList: print(formatStr.format(*item))
 
 def print_pretty_dict(idict):
 	import json
@@ -246,7 +269,7 @@ def main():
 	temp = "PARSING " + str(args.configfile) + "..."
 	print
 	print temp.center(80, " ")
-	catalog_dict = get_catalog_config(args.configfile)
+	catalog_dict = get_config(args.configfile)
 	print_pretty_dict(catalog_dict)
 
 	# read sql commands for a list of tables -----------------------------------
