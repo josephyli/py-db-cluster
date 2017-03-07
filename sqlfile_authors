@@ -1,0 +1,1 @@
+select authors.author from authors, books where authors.author=books.author;

@@ -256,6 +256,102 @@ def run_sql_commands_against_node(connection, sql_commands):
 		except pymysql.MySQLError as e:
 			print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.args[0])
 
+def detect_join():
+	# returns true if there is a join condition
+	if false:
+		return false
+	else:
+		return true
+
+def union_table(config_dict, connections, tablename):
+	#connect to dtables, then get results from each node
+	cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
+	cat_usr = config_dict['catalog.username']
+	cat_pw = config_dict['catalog.passwd']
+	cat_dr = config_dict['catalog.driver']
+	cat_db = config_dict['catalog.database']
+
+	# make the sql to select all nodes from the tables
+	sql = "SELECT * FROM dtables WHERE tname = \'" + tablename + "\'"
+
+	node_list = []
+	try:
+		connection = pymysql.connect(host=cat_hn,
+					user=cat_usr,
+					password=cat_pw,
+					db=cat_db,
+					charset='utf8mb4',
+					cursorclass=pymysql.cursors.DictCursor)
+		with connection.cursor() as cursor:
+			# select every node with the table name from the sqlfile
+			try:
+				cursor.execute(sql.strip() + ';')
+				while True:
+					row = cursor.fetchone()
+					if row == None:
+						print
+						break
+					node_list.append(row)
+			except OperationalError, msg:
+				print "Command skipped: ", msg
+				connection.commit()
+				connection.close
+	except:
+			print "couldn't connect to catalog"
+
+	# identify the localnode
+	l_hn = config_dict['localnode.hostname']
+	l_db = config_dict['localnode.database']
+	localnodeid = 1
+
+	if node_list:
+		for entry in node_list:
+			nodeid = entry["nodeid"]
+			if (config_dict['node'+str(nodeid)+'.database']==l_db) and (config_dict['node'+str(nodeid)+'.hostname'] == l_hn):
+				localnodeid = nodeid
+				print "localnode is node " + str(localnodeid) + " that will coordinate work with other nodes..."
+
+					# while active_count() > 1:
+					# 	time.sleep(1)
+
+			else:
+				# get data from other nodes
+				print "Getting data from node " + str(nodeid) + "..."
+				# list_of_threads = []
+				for count,connection in enumerate(connections):
+					if count != localnodeid-1:
+						# list_of_threads.append(Thread(target=run_sql_commands_against_node, args=(connection, sql_commands)))
+						sql = "SELECT * FROM " + tablename
+						try:
+							with connection.cursor() as cursor:
+								cursor.execute(sql.strip() + ';')
+								# while True:
+								d = cursor.fetchall()
+								if d == None:
+									break
+								connection.commit()
+						except pymysql.MySQLError as e:
+							print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.args[0])
+
+						print d
+						# construct the sql_statement
+						values = ', '.join(["%s" for i in range(len(d[0]))])
+						sql_statement = "INSERT INTO " + tablename + " VALUES ({a})".format(a=values)
+						args = ()
+						try:
+							print "something would happen here"
+							for i in range(len(d)):
+								args = tuple(d[i]) 
+								with connections[localnodeid-1].cursor() as cursor:
+									cursor.execute(sql_statement, args)
+									res = cursor.fetchone()
+									connections[localnodeid-1].commit()
+									print "data committed to node " + str(localnodeid)
+						except pymysql.MySQLError as e:
+							print e
+						finally:
+							cursor.close()
+
 # somewhat based on http://stackoverflow.com/questions/17330139/python-printing-a-dictionary-as-a-horizontal-table-with-headers
 def printTable(myDict, colList=None):
 	some_lock = threading.Lock()
@@ -292,7 +388,7 @@ def main():
 
 	# read sql commands for a list of tables -----------------------------------
 	sql_commands = read_SQL(args.sqlfile)
-	table_list = get_tables(sql_commands)
+	table_list = get_tables_real_names(sql_commands[0])
 	print
 	print "-" * 80
 	print
@@ -308,21 +404,21 @@ def main():
 	
 	
 	# return a list of connections to all nodes --------------------------------
-	print "CREATING CONNECTIONS...".center(80, " ")
-	print
+	# print "CREATING CONNECTIONS...".center(80, " ")
+	# print
 	
-	node_connections = get_connections(nodes_dict)
-	# if no connections were made, terminate the program, comment this out for testing
-	if len(node_connections) == 0:
-		print "Terminating due to connection failures..."
-		sys.exit()
-	print "# of connections:", str(len(node_connections))
-	print
-	for c in node_connections:
-		print "HOST: " + c.host + " DB: " + c.db + " " + str(c)
-	print
-	print "-" * 80
-	print
+	# node_connections = get_connections(nodes_dict)
+	# # if no connections were made, terminate the program, comment this out for testing
+	# if len(node_connections) == 0:
+	# 	print "Terminating due to connection failures..."
+	# 	sys.exit()
+	# print "# of connections:", str(len(node_connections))
+	# print
+	# for c in node_connections:
+	# 	print "HOST: " + c.host + " DB: " + c.db + " " + str(c)
+	# print
+	# print "-" * 80
+	# print
 
 	# run the commands against the nodes ---------------------------------------
 	print "EXECUTING SQL COMMANDS ON NODES...".center(80, " ")
@@ -331,7 +427,8 @@ def main():
 	if len(node_connections) == 0:
 		print "Terminating due to connection failures..."
 		sys.exit()
-	run_commmands_against_nodes(node_connections, sql_commands)
+	# run_commmands_against_nodes(node_connections, sql_commands)
+	union_table(nodes_dict, node_connections, table_list[0])
 
 
 	print

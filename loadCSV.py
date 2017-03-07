@@ -267,6 +267,7 @@ def not_partitioned_insert(csv_list, node_connections, config_dict):
 	print 
 	numnodes = config_dict['catalog.numnodes']
 
+	# construct the sql_statement
 	values = ', '.join(["%s" for i in range(len(csv_list[0]))])
 	sql_statement = "INSERT INTO " + config_dict['catalog.tablename'].upper() + " VALUES ({a})".format(a=values)
 	args = ()
