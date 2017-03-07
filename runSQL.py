@@ -9,6 +9,7 @@ import sys
 from ConfigParser import SafeConfigParser
 from StringIO import StringIO
 from pymysql import OperationalError
+from sqlparse import tokens
 from sqlparse.sql import Identifier
 from sqlparse.sql import IdentifierList
 from sqlparse.tokens import DML
@@ -35,6 +36,23 @@ def get_tables(sql_commands):
 		tables.append(extract_tables(command))
 	#extract the nested lists
 	return list(chain.from_iterable(tables))
+
+# returns a list of identifiers
+def get_tables_real_names(sql_command):
+	token_list = sqlparse.parse(sql_command)[0].tokens
+	idenlist_index = 0
+	for i in token_list:
+		idenlist_index += 1
+		if i.match(tokens.Keyword, 'from', False):
+			break
+	idenlist_index += 1
+	iden_list = []
+	for i in str(token_list[idenlist_index]).split(","):
+		temp = i.lstrip()
+		temp = temp.rstrip()
+		t2 = temp.split(" ")[0]
+		iden_list.append(t2)
+	return iden_list
 
 # ------- parsing table code-------------------------------------------------
 def extract_table_identifiers(token_stream):
