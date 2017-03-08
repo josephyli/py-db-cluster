@@ -1,19 +1,25 @@
-import threading
 import argparse
 import os
 import pymysql.cursors
 import re
 import sqlparse
 import sys
+import threading
 
 from ConfigParser import SafeConfigParser
 from StringIO import StringIO
+from collections import OrderedDict
 from pymysql import OperationalError
+from pymysql.cursors import DictCursorMixin, Cursor
 from sqlparse import tokens
 from sqlparse.sql import Identifier
 from sqlparse.sql import IdentifierList
 from sqlparse.tokens import DML
 from sqlparse.tokens import Keyword
+
+# preserves column order
+class OrderedDictCursor(DictCursorMixin, Cursor):
+    dict_type = OrderedDict
 
 # returns a list of sql commands as strings
 def read_SQL(sqlfilename):
@@ -323,34 +329,32 @@ def union_table(config_dict, connections, tablename):
 						# list_of_threads.append(Thread(target=run_sql_commands_against_node, args=(connection, sql_commands)))
 						sql = "SELECT * FROM " + tablename
 						try:
-							with connection.cursor() as cursor:
-								cursor.execute(sql.strip() + ';')
-								# while True:
-								d = cursor.fetchall()
-								if d == None:
-									break
-								connection.commit()
+							cursor = connection.cursor(OrderedDictCursor)
+							cursor.execute(sql.strip() + ';')
+							# while True:
+							results = cursor.fetchall()
+							if results == None:
+								break
+							connection.commit()
 						except pymysql.MySQLError as e:
 							print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.args[0])
-
-						print d
-						# construct the sql_statement
-						values = ', '.join(["%s" for i in range(len(d[0]))])
-						sql_statement = "INSERT INTO " + tablename + " VALUES ({a})".format(a=values)
-						args = ()
-						try:
-							print "something would happen here"
-							for i in range(len(d)):
-								args = tuple(d[i]) 
-								with connections[localnodeid-1].cursor() as cursor:
+						for row in results:
+							args = tuple(row.values())
+							# construct the sql_statement
+							values = ', '.join(["%s" for i in range(len(row))])
+							sql_statement = "INSERT INTO " + tablename + " VALUES ({a})".format(a=values)
+							
+							try:
+								print args
+								with connections[localnodeid-1].cursor(OrderedDictCursor) as cursor:
 									cursor.execute(sql_statement, args)
 									res = cursor.fetchone()
 									connections[localnodeid-1].commit()
 									print "data committed to node " + str(localnodeid)
-						except pymysql.MySQLError as e:
-							print e
-						finally:
-							cursor.close()
+							except pymysql.MySQLError as e:
+								print e
+							finally:
+								cursor.close()
 
 # somewhat based on http://stackoverflow.com/questions/17330139/python-printing-a-dictionary-as-a-horizontal-table-with-headers
 def printTable(myDict, colList=None):
@@ -428,7 +432,11 @@ def main():
 		print "Terminating due to connection failures..."
 		sys.exit()
 	# run_commmands_against_nodes(node_connections, sql_commands)
-	union_table(nodes_dict, node_connections, table_list[0])
+
+	# a bit hardcoded for now --- 
+	# check the partition method
+	if (nodes_dict['node1.partmtd'] == 1 or nodes_dict['node1.partmtd'] == 2) and nodes_dict['node1.tname'].upper() == table_list[0].upper():
+		union_table(nodes_dict, node_connections, table_list[0])
 
 
 	print

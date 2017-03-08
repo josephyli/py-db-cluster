@@ -1,0 +1,8 @@
+catalog.driver= com.mysql.jdbc.Drive
+catalog.hostname=jdbc:mysql://127.0.0.1:3306/josephyl1
+catalog.username=db2inst1
+catalog.passwd=mypasswd
+
+tablename=authors
+
+partition.method=notpartition
