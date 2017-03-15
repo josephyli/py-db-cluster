@@ -61,6 +61,39 @@ def get_node_config(configfilename):
 		print("No config file found at", configfilename)
 		return null
 
+def check_dtables_exists(config_dict):
+	cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
+	cat_usr = config_dict['catalog.username']
+	cat_pw = config_dict['catalog.passwd']
+	cat_dr = config_dict['catalog.driver']
+	cat_db = config_dict['catalog.database']
+
+	sql = "SELECT * FROM information_schema.tables WHERE table_schema = '%s' AND table_name = 'dtables' LIMIT 1;" % cat_db
+	res = None;
+	try:
+		# connect and execute the sql statement
+		connection = pymysql.connect(host=cat_hn,
+					user=cat_usr,
+					password=cat_pw,
+					db=cat_db,
+					charset='utf8mb4',
+					cursorclass=pymysql.cursors.DictCursor)
+
+		print "[SUCCESSFUL CATALOG CONNECTION] <"+connection.host+" - "+connection.db+">", connection
+		print
+
+		with connection.cursor() as cursor:
+				res = cursor.execute(sql.strip() + ';')
+				connection.commit()
+	except pymysql.err.InternalError as d:
+		print "[FAILED TO CHECK IF CATALOG EXISTS]"
+		print d
+	if res:
+		return True
+	else:
+		return False
+
+
 # stores metadata about the DDL in a catalog database
 # using a list of tables that need to be created in the catalog
 def update_catalog(config_dict, table_list):
@@ -70,7 +103,10 @@ def update_catalog(config_dict, table_list):
 	cat_dr = config_dict['catalog.driver']
 	cat_db = config_dict['catalog.database']
 
-	sql = ["DROP TABLE IF EXISTS dtables", "CREATE TABLE dtables (tname char(32), nodedriver char(64), nodeurl char(128), nodeuser char(16), nodepasswd char(16), partmtd int, nodeid int, partcol char(32), partparam1 char(32), partparam2 char(32));"]
+	if check_dtables_exists(config_dict):
+		sql = []
+	else:
+		sql = ["CREATE TABLE IF NOT EXISTS dtables (tname char(32), nodedriver char(64), nodeurl char(128), nodeuser char(16), nodepasswd char(16), partmtd int, nodeid int, partcol char(32), partparam1 char(32), partparam2 char(32));"]
 
 	# prepares the sql statement to insert into catalog the tables in each node
 	for table in table_list:
@@ -223,6 +259,7 @@ def main():
 	print
 	print "-" * 80
 	print
+
 
 	# update catalog  ----------------------------------------------------------
 	print "UPDATING CATALOG...".center(80, " ")
