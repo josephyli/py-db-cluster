@@ -403,6 +403,8 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument("configfile", help="Location of Config File, See the README for more information")
 	parser.add_argument("sqlfile", help="Location of SQL File, See the README for more information")
+	parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
+	global args
 	args = parser.parse_args()
 	print
 	print "=" * 80
