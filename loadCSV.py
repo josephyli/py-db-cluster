@@ -245,7 +245,7 @@ def update_catalog_with_partitions(config_dict):
 	except:
 			print "couldn't connect to catalog"
 	if node_list:
-		config_dict['catalog.numnodes'] = len(node_list)
+		# config_dict['catalog.numnodes'] = len(node_list)
 		# access the list of node dicts
 		for entry in node_list:
 			nodeid = entry["nodeid"]
