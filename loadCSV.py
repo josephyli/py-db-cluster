@@ -20,6 +20,35 @@ def loadCSV(configfilename, csvfilename):
 			csv_list.append(row)
 	return csv_list
 
+def getnumnodes(config_dict):
+	cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
+	cat_usr = config_dict['catalog.username']
+	cat_pw = config_dict['catalog.passwd']
+	cat_dr = config_dict['catalog.driver']
+	cat_db = config_dict['catalog.database']
+
+	sql = "SELECT MAX(nodeid) AS nodeid FROM dtables;"
+
+	connection = pymysql.connect(host=cat_hn,
+		user=cat_usr,
+		password=cat_pw,
+		db=cat_db,
+		charset='utf8mb4',
+		cursorclass=pymysql.cursors.DictCursor)
+	with connection.cursor() as cursor:
+		# execute every sql command
+		try:
+			cursor.execute(sql.strip() + ';')
+			while True:
+				row = cursor.fetchone()
+				if row == None:
+					break
+				numnodes = row['nodeid']
+		except OperationalError, msg:
+			print "Error getting numnode: ", msg
+			return -1
+	return numnodes
+
 # returns a dict with all nodes information
 # responsible for parsing the config file
 def get_partition_config(configfilename):
@@ -59,33 +88,8 @@ def get_partition_config(configfilename):
 				config_dict['catalog.numnodes'] = numnodes
 			else: 
 				# connect to catalog to get the supposed number of nodes
-				cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
-				cat_usr = config_dict['catalog.username']
-				cat_pw = config_dict['catalog.passwd']
-				cat_dr = config_dict['catalog.driver']
-				cat_db = config_dict['catalog.database']
-
-				sql = "SELECT MAX(nodeid) AS nodeid FROM dtables;"
-
-				connection = pymysql.connect(host=cat_hn,
-					user=cat_usr,
-					password=cat_pw,
-					db=cat_db,
-					charset='utf8mb4',
-					cursorclass=pymysql.cursors.DictCursor)
-				with connection.cursor() as cursor:
-					# execute every sql command
-					try:
-						cursor.execute(sql.strip() + ';')
-						while True:
-							row = cursor.fetchone()
-							if row == None:
-								break
-							numnodes = row['nodeid']
-							config_dict["catalog.numnodes"] = numnodes
-					except OperationalError, msg:
-						print "Command skipped: ", msg
-						connection.commit()
+				config_dict["catalog.numnodes"] = getnumnodes(config_dict)
+				numnodes = config_dict["catalog.numnodes"]
 
 			# read depending on partition method
 			if (partition_method_string == 'notpartition'):
@@ -107,7 +111,7 @@ def get_partition_config(configfilename):
 							config_dict["partition.node" + str(node) + "." + parameter] = cp.getint('fakesection', "partition.node" + str(node) + "." + parameter)
 					node += 1
 				# check if dtables matches number in partition
-				if numnodes != node -1:
+				if numnodes != node - 1:
 					print "Error! dtables's number of nodes does not match the partitioning. Exiting..."
 					sys.exit(1)
 				return config_dict
@@ -117,6 +121,7 @@ def get_partition_config(configfilename):
 				config_dict['catalog.numnodes'] = cp.getint('fakesection', 'partition.param1')
 				config_dict['partition.column'] = cp.get('fakesection', 'partition.column')
 				config_dict['partition.param1'] = cp.getint('fakesection', 'partition.param1')
+				numnodes = getnumnodes(config_dict)
 				if numnodes != config_dict['partition.param1']:
 					print "Error! dtables's number of nodes does not match the partitioning. Exiting..."
 					sys.exit(1)
@@ -245,7 +250,6 @@ def update_catalog_with_partitions(config_dict):
 	except:
 			print "couldn't connect to catalog"
 	if node_list:
-		config_dict['catalog.numnodes'] = len(node_list)
 		# access the list of node dicts
 		for entry in node_list:
 			nodeid = entry["nodeid"]

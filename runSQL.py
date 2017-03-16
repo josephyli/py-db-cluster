@@ -35,6 +35,35 @@ def read_SQL(sqlfilename):
 			sql_commands.append(c)
 	return sql_commands
 
+def getnumnodes(config_dict):
+	cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
+	cat_usr = config_dict['catalog.username']
+	cat_pw = config_dict['catalog.passwd']
+	cat_dr = config_dict['catalog.driver']
+	cat_db = config_dict['catalog.database']
+
+	sql = "SELECT MAX(nodeid) AS nodeid FROM dtables;"
+
+	connection = pymysql.connect(host=cat_hn,
+		user=cat_usr,
+		password=cat_pw,
+		db=cat_db,
+		charset='utf8mb4',
+		cursorclass=pymysql.cursors.DictCursor)
+	with connection.cursor() as cursor:
+		# execute every sql command
+		try:
+			cursor.execute(sql.strip() + ';')
+			while True:
+				row = cursor.fetchone()
+				if row == None:
+					break
+				numnodes = row['nodeid']
+		except OperationalError, msg:
+			print "Error getting numnode: ", msg
+			return -1
+	return numnodes
+
 def get_tables(sql_commands):
 	from itertools import chain
 	tables = []
@@ -177,7 +206,7 @@ def read_catalog(config_dict, table_list):
 
 	# if node list is not empty, then pass it into the config_dict
 	if node_list:
-		config_dict['catalog.numnodes'] = len(node_list)
+		config_dict['catalog.numnodes'] = getnumnodes(config_dict)
 		# access the list of node dicts
 		for entry in node_list:
 			nodeid = entry["nodeid"]
@@ -281,8 +310,8 @@ def join_tables(config_dict, connections, table1, table2):
 	# form statement to select all nodes with table1
 	sql = "SELECT * FROM dtables WHERE tname = \'" + table1 + "\'"
 
-	# connect to catalog to get table1's nodes
-	node_list1 = []
+	# connect to catalog to get table1's partitions
+	part_list1 = []
 	try:
 		connection = pymysql.connect(host=cat_hn,
 					user=cat_usr,
@@ -306,11 +335,11 @@ def join_tables(config_dict, connections, table1, table2):
 	except:
 			print "couldn't connect to catalog"
 
-	# form statement to select all nodes with table1
+	# form statement to select all partitions with table1
 	sql = "SELECT * FROM dtables WHERE tname = \'" + table2 + "\'"
 
 	# connect to catalog to get table2's nodes
-	node_list2 = []
+	part_list2 = []
 	try:
 		with connection.cursor() as cursor:
 			# select every node with the table name from the sqlfile
@@ -321,7 +350,7 @@ def join_tables(config_dict, connections, table1, table2):
 					if row == None:
 						print
 						break
-					node_list2.append(row)
+					part_list2.append(row)
 			except OperationalError, msg:
 				print "Command skipped: ", msg
 				connection.commit()
@@ -329,6 +358,92 @@ def join_tables(config_dict, connections, table1, table2):
 			print "couldn't connect to catalog"
 	finally:
 		connection.close()
+
+	# identify the localnode which will have the temporary table and create the temp table
+	l_hn = config_dict['localnode.hostname']
+	l_db = config_dict['localnode.database']
+	for nodeid in range(1, config_dict["catalog.numnodes"]+1):
+		if (config_dict['node'+str(nodeid)+'.database']==l_db) and (config_dict['node'+str(nodeid)+'.hostname'] == l_hn):
+			localnodeid = nodeid 
+			print "The localnode is node " + str(localnodeid) + " that will coordinate work with other nodes..."
+			try: 
+				localnodecursor = connections[localnodeid-1].cursor(OrderedDictCursor)
+				create_temp_sql = "CREATE TABLE IF NOT EXISTS {0}_temp AS (SELECT * FROM {1})".format(table1.upper(), table1.upper())
+				print create_temp_sql
+				localnodecursor.execute(create_temp_sql.strip() + ';')
+				connections[localnodeid-1].commit()
+				create_temp_sql_2 = "CREATE TABLE IF NOT EXISTS {0}_temp AS (SELECT * FROM {1})".format(table2.upper(), table2.upper())
+				print create_temp_sql_2
+				localnodecursor.execute(create_temp_sql_2.strip() + ';')
+				connections[localnodeid-1].commit()
+			except pymysql.MySQLError as e:
+				print e
+			finally:
+				break
+	
+	# store table1 in temporary table 'table1_temp' on localnode
+	for count,connection in enumerate(connections):
+		if count + 1 != localnodeid:
+			select_sql = "SELECT * FROM {0}".format(table1)
+		
+			try:
+				cursor = connection.cursor(OrderedDictCursor)
+				cursor.execute(select_sql.strip() + ';')
+				# while True:
+				results = cursor.fetchall()
+				if results == None:
+					break
+				connection.commit()
+				# print "RESULTS",results
+				for row in results:
+					rowargs = tuple(row.values())
+					# construct the sql_statement
+					values = ', '.join(["%s" for i in range(len(row))])
+					sql_statement = "INSERT INTO {0}_temp VALUES ({a})".format(table1, a=values)
+					
+					try:
+						# print rowargs
+						localnodecursor.execute(sql_statement, rowargs)
+						res = localnodecursor.fetchone()
+						connections[localnodeid-1].commit()
+					except pymysql.MySQLError as e:
+						print e
+			except pymysql.MySQLError as e:
+				print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.rowargs[0])
+	
+	# store table2 in temporary table 'table2_temp' on localnode
+	for count,connection in enumerate(connections):
+		if count + 1 != localnodeid:
+			select_sql = "SELECT * FROM {0}".format(table2)
+		
+			try:
+				cursor = connection.cursor(OrderedDictCursor)
+				cursor.execute(select_sql.strip() + ';')
+				# while True:
+				results = cursor.fetchall()
+				if results == None:
+					break
+				connection.commit()
+				for row in results:
+					rowargs = tuple(row.values())
+					# construct the sql_statement
+					values = ', '.join(["%s" for i in range(len(row))])
+					sql_statement = "INSERT INTO {0}_temp VALUES ({a})".format(table2, a=values)
+					
+					try:
+						# print rowargs
+						localnodecursor.execute(sql_statement, rowargs)
+						res = localnodecursor.fetchone()
+						connections[localnodeid-1].commit()
+					except pymysql.MySQLError as e:
+						print e
+					finally:
+						cursor.close()
+			except pymysql.MySQLError as e:
+				print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.rowargs[0])
+
+	print "We created temporary table {0}_temp and {1}_temp... Now to write code for joining them!".format(table1.upper(), table2.upper())
+	### TODO - close connection
 
 	# identify the localnode
 	l_hn = config_dict['localnode.hostname']
@@ -339,47 +454,6 @@ def join_tables(config_dict, connections, table1, table2):
 	# 	for entry in node_list1:
 	# 		for entry in node_list2:
 	# 			nodeid = entry["nodeid"]
-	# 			print "nodeid",nodeid 
-	# 			if (config_dict['node'+str(nodeid)+'.database']==l_db) and (config_dict['node'+str(nodeid)+'.hostname'] == l_hn):
-	# 				localnodeid = nodeid 
-	# 				print "localnode is node " + str(localnodeid) + " that will coordinate work with other nodes..."
-
-	# 					# while active_count() > 1:
-	# 					# 	time.sleep(1)
-
-	# 				print "Joining data from node " + str(nodeid) + " into temporary table..."
-	# 				# list_of_threads = []
-	# 				for count,connection in enumerate(connections):
-	# 					if count != localnodeid-1:
-	# 						# list_of_threads.append(Thread(target=run_sql_commands_against_node, args=(connection, sql_commands)))
-	# 						sql = "SELECT * FROM " + tablename
-	# 						try:
-	# 							cursor = connection.cursor(OrderedDictCursor)
-	# 							cursor.execute(sql.strip() + ';')
-	# 							# while True:
-	# 							results = cursor.fetchall()
-	# 							if results == None:
-	# 								break
-	# 							connection.commit()
-	# 						except pymysql.MySQLError as e:
-	# 							print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.args[0])
-	# 						for row in results:
-	# 							args = tuple(row.values())
-	# 							# construct the sql_statement
-	# 							values = ', '.join(["%s" for i in range(len(row))])
-	# 							sql_statement = "INSERT INTO " + tablename + " VALUES ({a})".format(a=values)
-								
-	# 							try:
-	# 								print args
-	# 								with connections[localnodeid-1].cursor(OrderedDictCursor) as cursor:
-	# 									cursor.execute(sql_statement, args)
-	# 									res = cursor.fetchone()
-	# 									# connections[localnodeid-1].commit()
-	# 									print "data (would be) committed to node " + str(localnodeid)
-	# 							except pymysql.MySQLError as e:
-	# 								print e
-	# 							finally:
-	# 								cursor.close()
 
 # somewhat based on http://stackoverflow.com/questions/17330139/python-printing-a-dictionary-as-a-horizontal-table-with-headers
 def printTable(myDict, colList=None):
@@ -462,7 +536,7 @@ def main():
 
 	# a bit hardcoded for now --- 
 	# check the partition method
-	if (nodes_dict['node1.partmtd'] == 1 or nodes_dict['node1.partmtd'] == 2) and nodes_dict['node1.tname'].upper() == table_list[0].upper():
+	if (nodes_dict['node1.partmtd'] == 1 or nodes_dict['node1.partmtd'] == 2):
 		join_tables(nodes_dict, node_connections, table_list[0], table_list[1],)
 
 
