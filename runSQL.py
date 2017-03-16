@@ -326,8 +326,9 @@ def join_tables(config_dict, connections, table1, table2):
 				while True:
 					row = cursor.fetchone()
 					if row == None:
+						print
 						break
-					part_list1.append(row)
+					node_list1.append(row)
 			except OperationalError, msg:
 				print "Command skipped: ", msg
 				connection.commit()
@@ -443,8 +444,16 @@ def join_tables(config_dict, connections, table1, table2):
 
 	print "We created temporary table {0}_temp and {1}_temp... Now to write code for joining them!".format(table1.upper(), table2.upper())
 	### TODO - close connection
-				
-				
+
+	# identify the localnode
+	l_hn = config_dict['localnode.hostname']
+	l_db = config_dict['localnode.database']
+
+	# # join the tables by selecting from both
+	# if node_list1 and node_list2:
+	# 	for entry in node_list1:
+	# 		for entry in node_list2:
+	# 			nodeid = entry["nodeid"]
 
 # somewhat based on http://stackoverflow.com/questions/17330139/python-printing-a-dictionary-as-a-horizontal-table-with-headers
 def printTable(myDict, colList=None):
@@ -468,6 +477,8 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument("configfile", help="Location of Config File, See the README for more information")
 	parser.add_argument("sqlfile", help="Location of SQL File, See the README for more information")
+	parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
+	global args
 	args = parser.parse_args()
 	print
 	print "=" * 80
