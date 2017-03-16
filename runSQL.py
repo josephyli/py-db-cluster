@@ -216,14 +216,14 @@ def read_catalog(config_dict, table_list):
 			config_dict['node'+str(nodeid)+'.partparam1'] = entry['partparam1']
 			config_dict['node'+str(nodeid)+'.partparam2'] = entry['partparam2']
 			config_dict['node'+str(nodeid)+'.driver'] = entry['nodedriver']
-			config_dict['node'+str(nodeid)+'.username'] = entry['nodeuser'] 
+			config_dict['node'+str(nodeid)+'.username'] = entry['nodeuser']
 			config_dict['node'+str(nodeid)+'.tname'] = entry['tname']
 			config_dict['node'+str(nodeid)+'.passwd'] = entry['nodepasswd']
 			config_dict['node'+str(nodeid)+'.database'] = entry['nodeurl'].rsplit('/', 1)[-1]
-	else: 
+	else:
 		config_dict['catalog.numnodes'] = 0
 	return config_dict
-	
+
 
 # returns a list of connections to all nodes
 def get_connections(config_dict):
@@ -291,12 +291,35 @@ def run_sql_commands_against_node(connection, sql_commands):
 		except pymysql.MySQLError as e:
 			print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.args[0])
 
-def detect_join():
-	# returns true if there is a join condition
-	if false:
-		return false
-	else:
-		return true
+def detect_join(sql_statement):
+	# ensure that the input is a string
+	if not isinstance(sql_statement, basestring):
+		if args.verbose:
+			sys.stderr.write(sql_statement + " is not a string")
+		return False
+
+	# temporarily make it lower case for easier comparisons
+	sql_statement = sql_statement.lower()
+
+	# ensures that there is only one sql statement given statement
+	# returns false if there is not only one sql statement passed in
+	num_statements = len(sqlparse.parse(sql_statement))
+	if num_statements != 1:
+		if args.verbose:
+			sys.stderr.write("'" + str(sql_statement) + "' contains " + num_statements + " statements when it should only have one")
+		return False
+
+	if " join " in sql_statement:
+		return True
+
+	try:
+		if len(get_tables_real_names(sql_statement)) > 1:
+			return True
+		else:
+			return False
+	except Exception:
+		return False
+
 
 def join_tables(config_dict, connections, table1, table2):
 	#This function uses the config_dict, existing connections, and list of tables to join tables together
@@ -364,9 +387,9 @@ def join_tables(config_dict, connections, table1, table2):
 	l_db = config_dict['localnode.database']
 	for nodeid in range(1, config_dict["catalog.numnodes"]+1):
 		if (config_dict['node'+str(nodeid)+'.database']==l_db) and (config_dict['node'+str(nodeid)+'.hostname'] == l_hn):
-			localnodeid = nodeid 
+			localnodeid = nodeid
 			print "The localnode is node " + str(localnodeid) + " that will coordinate work with other nodes..."
-			try: 
+			try:
 				localnodecursor = connections[localnodeid-1].cursor(OrderedDictCursor)
 				create_temp_sql = "CREATE TABLE IF NOT EXISTS {0}_temp AS (SELECT * FROM {1})".format(table1.upper(), table1.upper())
 				print create_temp_sql
@@ -380,12 +403,12 @@ def join_tables(config_dict, connections, table1, table2):
 				print e
 			finally:
 				break
-	
+
 	# store table1 in temporary table 'table1_temp' on localnode
 	for count,connection in enumerate(connections):
 		if count + 1 != localnodeid:
 			select_sql = "SELECT * FROM {0}".format(table1)
-		
+
 			try:
 				cursor = connection.cursor(OrderedDictCursor)
 				cursor.execute(select_sql.strip() + ';')
@@ -400,7 +423,7 @@ def join_tables(config_dict, connections, table1, table2):
 					# construct the sql_statement
 					values = ', '.join(["%s" for i in range(len(row))])
 					sql_statement = "INSERT INTO {0}_temp VALUES ({a})".format(table1, a=values)
-					
+
 					try:
 						# print rowargs
 						localnodecursor.execute(sql_statement, rowargs)
@@ -410,12 +433,12 @@ def join_tables(config_dict, connections, table1, table2):
 						print e
 			except pymysql.MySQLError as e:
 				print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.rowargs[0])
-	
+
 	# store table2 in temporary table 'table2_temp' on localnode
 	for count,connection in enumerate(connections):
 		if count + 1 != localnodeid:
 			select_sql = "SELECT * FROM {0}".format(table2)
-		
+
 			try:
 				cursor = connection.cursor(OrderedDictCursor)
 				cursor.execute(select_sql.strip() + ';')
@@ -429,7 +452,7 @@ def join_tables(config_dict, connections, table1, table2):
 					# construct the sql_statement
 					values = ', '.join(["%s" for i in range(len(row))])
 					sql_statement = "INSERT INTO {0}_temp VALUES ({a})".format(table2, a=values)
-					
+
 					try:
 						# print rowargs
 						localnodecursor.execute(sql_statement, rowargs)
@@ -449,20 +472,14 @@ def join_tables(config_dict, connections, table1, table2):
 	l_hn = config_dict['localnode.hostname']
 	l_db = config_dict['localnode.database']
 
-	# # join the tables by selecting from both
-	# if node_list1 and node_list2:
-	# 	for entry in node_list1:
-	# 		for entry in node_list2:
-	# 			nodeid = entry["nodeid"]
-
 # somewhat based on http://stackoverflow.com/questions/17330139/python-printing-a-dictionary-as-a-horizontal-table-with-headers
 def printTable(myDict, colList=None):
 	some_lock = threading.Lock()
 	with some_lock:
-		if not colList: 
+		if not colList:
 			colList = list(myDict[0].keys() if myDict else [])
-		myList = [] 
-		for item in myDict: 
+		myList = []
+		for item in myDict:
 			myList.append([str(item[col] or '') for col in colList])
 		colSize = [max(map(len,col)) for col in zip(*myList)]
 		formatStr = ' '.join(["{{:<{}}}".format(i+5) for i in colSize])
@@ -506,12 +523,12 @@ def main():
 	print
 	print "-" * 80
 	print
-	
-	
+
+
 	# return a list of connections to all nodes --------------------------------
 	# print "CREATING CONNECTIONS...".center(80, " ")
 	# print
-	
+
 	# node_connections = get_connections(nodes_dict)
 	# # if no connections were made, terminate the program, comment this out for testing
 	# if len(node_connections) == 0:
@@ -534,7 +551,7 @@ def main():
 		sys.exit()
 	# run_commmands_against_nodes(node_connections, sql_commands)
 
-	# a bit hardcoded for now --- 
+	# a bit hardcoded for now ---
 	# check the partition method
 	if (nodes_dict['node1.partmtd'] == 1 or nodes_dict['node1.partmtd'] == 2):
 		join_tables(nodes_dict, node_connections, table_list[0], table_list[1],)
