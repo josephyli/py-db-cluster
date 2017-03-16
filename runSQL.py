@@ -468,10 +468,6 @@ def join_tables(config_dict, connections, table1, table2):
 	print "We created temporary table {0}_temp and {1}_temp... Now to write code for joining them!".format(table1.upper(), table2.upper())
 	### TODO - close connection
 
-	# identify the localnode
-	l_hn = config_dict['localnode.hostname']
-	l_db = config_dict['localnode.database']
-
 # somewhat based on http://stackoverflow.com/questions/17330139/python-printing-a-dictionary-as-a-horizontal-table-with-headers
 def printTable(myDict, colList=None):
 	some_lock = threading.Lock()
@@ -549,13 +545,19 @@ def main():
 	if len(node_connections) == 0:
 		print "Terminating due to connection failures..."
 		sys.exit()
-	# run_commmands_against_nodes(node_connections, sql_commands)
+	
 
 	# a bit hardcoded for now ---
-	# check the partition method
-	if (nodes_dict['node1.partmtd'] == 1 or nodes_dict['node1.partmtd'] == 2):
-		join_tables(nodes_dict, node_connections, table_list[0], table_list[1],)
-
+	if detect_join(sql_commands[0]):
+		# a join was detected
+		# check the partition method
+		if (nodes_dict['node1.partmtd'] == 1 or nodes_dict['node1.partmtd'] == 2):
+			join_tables(nodes_dict, node_connections, table_list[0], table_list[1],)
+		else:
+			print "TODO!!!! A NONPARTITION METHOD USED BUT JOIN WAS DETECTED!"
+	else:
+		# no join, no worries
+		run_commmands_against_nodes(node_connections, sql_commands)
 
 	print
 	print "=" * 80
