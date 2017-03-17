@@ -1,1 +1,1 @@
-select authors.author from authors, books where authors.author=books.author;
+select authors.author, books.title from authors, books where authors.author=books.author;

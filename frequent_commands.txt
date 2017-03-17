@@ -1,22 +1,18 @@
+########## MYSQL #############
 drop table josephyl1.dtables;
 drop table josephyl2.authors; drop table josephyl3.authors;
 drop table josephyl2.books; drop table josephyl3.books;
 
 ============
-
+########## TERMINAL ##########
 sh run.sh clustercfg ddlfile
 sh run.sh clustercfg ddlfile_authors
 
-sh run4.sh clustercfghash books.csv
+sh run4.sh clustercfghash books.csv  == sh run4.sh clustercfgrange books.csv
+					sh run4.sh clustercfgrange_authors authors.csv
 sh run4.sh clustercfghash_authors authors.csv
 
 sh run3.sh clustercfg sqlfile_authors
 
 
 ============
-
-
-drop table josephyl2.books_temp; drop table josephyl2.authors_temp;
-
-select * from josephyl2.books_temp; 
-select * from josephyl2.authors_temp;
