@@ -321,7 +321,7 @@ def detect_join(sql_statement):
 		return False
 
 
-def join_tables(config_dict, connections, table1, table2):
+def join_tables(config_dict, connections, table1, table2, sql_query):
 	#This function uses the config_dict, existing connections, and list of tables to join tables together
 	#connect to dtables, then get results from each node
 	cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
@@ -391,11 +391,11 @@ def join_tables(config_dict, connections, table1, table2):
 			print "The localnode is node " + str(localnodeid) + " that will coordinate work with other nodes..."
 			try:
 				localnodecursor = connections[localnodeid-1].cursor(OrderedDictCursor)
-				create_temp_sql = "CREATE TABLE IF NOT EXISTS {0}_temp AS (SELECT * FROM {1})".format(table1.upper(), table1.upper())
+				create_temp_sql = "CREATE TEMPORARY TABLE IF NOT EXISTS {0} AS (SELECT * FROM {1})".format(table1.upper(), table1.upper())
 				print create_temp_sql
 				localnodecursor.execute(create_temp_sql.strip() + ';')
 				connections[localnodeid-1].commit()
-				create_temp_sql_2 = "CREATE TABLE IF NOT EXISTS {0}_temp AS (SELECT * FROM {1})".format(table2.upper(), table2.upper())
+				create_temp_sql_2 = "CREATE TEMPORARY TABLE IF NOT EXISTS {0} AS (SELECT * FROM {1})".format(table2.upper(), table2.upper())
 				print create_temp_sql_2
 				localnodecursor.execute(create_temp_sql_2.strip() + ';')
 				connections[localnodeid-1].commit()
@@ -404,7 +404,7 @@ def join_tables(config_dict, connections, table1, table2):
 			finally:
 				break
 
-	# store table1 in temporary table 'table1_temp' on localnode
+	# store table1 in temporary table 'table1' on localnode
 	for count,connection in enumerate(connections):
 		if count + 1 != localnodeid:
 			select_sql = "SELECT * FROM {0}".format(table1)
@@ -422,7 +422,7 @@ def join_tables(config_dict, connections, table1, table2):
 					rowargs = tuple(row.values())
 					# construct the sql_statement
 					values = ', '.join(["%s" for i in range(len(row))])
-					sql_statement = "INSERT INTO {0}_temp VALUES ({a})".format(table1, a=values)
+					sql_statement = "INSERT INTO {0} VALUES ({a})".format(table1, a=values)
 
 					try:
 						# print rowargs
@@ -434,7 +434,7 @@ def join_tables(config_dict, connections, table1, table2):
 			except pymysql.MySQLError as e:
 				print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.rowargs[0])
 
-	# store table2 in temporary table 'table2_temp' on localnode
+	# store table2 in temporary table 'table2' on localnode
 	for count,connection in enumerate(connections):
 		if count + 1 != localnodeid:
 			select_sql = "SELECT * FROM {0}".format(table2)
@@ -451,7 +451,7 @@ def join_tables(config_dict, connections, table1, table2):
 					rowargs = tuple(row.values())
 					# construct the sql_statement
 					values = ', '.join(["%s" for i in range(len(row))])
-					sql_statement = "INSERT INTO {0}_temp VALUES ({a})".format(table2, a=values)
+					sql_statement = "INSERT INTO {0} VALUES ({a})".format(table2, a=values)
 
 					try:
 						# print rowargs
@@ -464,8 +464,19 @@ def join_tables(config_dict, connections, table1, table2):
 						cursor.close()
 			except pymysql.MySQLError as e:
 				print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.rowargs[0])
+	
+	# use the original query on the new temporary tables
+	try:
+		localnodecursor.execute(sql_query.strip() + ';')
+		cols = set()
+		d = localnodecursor.fetchall()
+		printTable(d)
+	except pymysql.MySQLError as e:
+		print e
+	finally:
+		localnodecursor.close()
 
-	print "We created temporary table {0}_temp and {1}_temp... Now to write code for joining them!".format(table1.upper(), table2.upper())
+	# print "We created temporary table {0} and {1}... Now to write code for joining them!".format(table1.upper(), table2.upper())
 	### TODO - close connection
 
 # somewhat based on http://stackoverflow.com/questions/17330139/python-printing-a-dictionary-as-a-horizontal-table-with-headers
@@ -550,9 +561,9 @@ def main():
 	# a bit hardcoded for now ---
 	if detect_join(sql_commands[0]):
 		# a join was detected
-		# check the partition method
+		# if the partition method is range or hash, then run join
 		if (nodes_dict['node1.partmtd'] == 1 or nodes_dict['node1.partmtd'] == 2):
-			join_tables(nodes_dict, node_connections, table_list[0], table_list[1],)
+			join_tables(nodes_dict, node_connections, table_list[0], table_list[1], sql_commands[0])
 		else:
 			print "TODO!!!! A NONPARTITION METHOD USED BUT JOIN WAS DETECTED!"
 	else:
