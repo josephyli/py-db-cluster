@@ -16,3 +16,12 @@ sh run3.sh clustercfg sqlfile_authors
 
 
 ============
+########## TERMINAL == RUNSQL UPDATED ##########
+
+sh run3.sh clustercfg ddlfile
+sh run3.sh clustercfg ddlfile_authors
+
+sh run3.sh clustercfghash books.csv
+sh run3.sh clustercfgrange_authors authors.csv
+
+sh run3.sh clustercfg sqlfile_authors

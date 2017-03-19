@@ -18,7 +18,6 @@ from sqlparse.sql import IdentifierList
 from sqlparse.tokens import DML
 from sqlparse.tokens import Keyword
 
-
 def test_for_table_name(configfilename):
 	if os.path.isfile(configfilename):
 		with open(configfilename) as stream:
@@ -32,6 +31,88 @@ def test_for_table_name(configfilename):
 				return True
 			else:
 				return False
+
+def check_dtables_exists(config_dict):
+	cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
+	cat_usr = config_dict['catalog.username']
+	cat_pw = config_dict['catalog.passwd']
+	cat_dr = config_dict['catalog.driver']
+	cat_db = config_dict['catalog.database']
+
+	sql = "SELECT * FROM information_schema.tables WHERE table_schema = '%s' AND table_name = 'dtables' LIMIT 1;" % cat_db
+	res = None;
+	try:
+		# connect and execute the sql statement
+		connection = pymysql.connect(host=cat_hn,
+					user=cat_usr,
+					password=cat_pw,
+					db=cat_db,
+					charset='utf8mb4',
+					cursorclass=pymysql.cursors.DictCursor)
+
+		# print "[SUCCESSFUL CATALOG CONNECTION] <"+connection.host+" - "+connection.db+">", connection
+		print
+
+		with connection.cursor() as cursor:
+				res = cursor.execute(sql.strip() + ';')
+				connection.commit()
+	except pymysql.err.InternalError as d:
+		print "[FAILED TO CHECK IF CATALOG EXISTS]"
+		print d
+	if res:
+		return True
+	else:
+		return False
+
+
+# stores metadata about the DDL in a catalog database
+# using a list of tables that need to be created in the catalog
+def update_DDL_catalog(config_dict, table_list):
+	cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
+	cat_usr = config_dict['catalog.username']
+	cat_pw = config_dict['catalog.passwd']
+	cat_dr = config_dict['catalog.driver']
+	cat_db = config_dict['catalog.database']
+
+	if check_dtables_exists(config_dict):
+		sql = []
+	else:
+		sql = ["CREATE TABLE IF NOT EXISTS dtables (tname char(32), nodedriver char(64), nodeurl char(128), nodeuser char(16), nodepasswd char(16), partmtd int, nodeid int, partcol char(32), partparam1 char(32), partparam2 char(32));"]
+
+	# prepares the sql statement to insert into catalog the tables in each node
+	for table in table_list:
+		for i in range(config_dict["catalog.numnodes"]):
+			hn = config_dict['node'+str(i + 1)+'.hostname']
+			usr = config_dict['node'+str(i + 1)+'.username']
+			pw = config_dict['node'+str(i + 1)+'.passwd']
+			dr = config_dict['node'+str(i + 1)+'.driver']
+
+			sql.append("INSERT INTO dtables VALUES (\'%s\', \'%s\', \'%s\', \'%s\',\'%s\', NULL,%d,NULL,NULL,NULL);" % (table,dr,hn,usr,pw,i+1))
+	try:
+		# connect and execute the sql statement
+		connection = pymysql.connect(host=cat_hn,
+					user=cat_usr,
+					password=cat_pw,
+					db=cat_db,
+					charset='utf8mb4',
+					cursorclass=pymysql.cursors.DictCursor)
+
+		# print "[SUCCESSFUL CATALOG CONNECTION] <"+connection.host+" - "+connection.db+">", connection
+		print
+
+		with connection.cursor() as cursor:
+			# execute every sql command
+			for command in sql:
+				try:
+					print command
+					print
+					cursor.execute(command.strip() + ';')
+					connection.commit()
+				except OperationalError, msg:
+					print "Command skipped: ", msg
+	except pymysql.err.InternalError as d:
+		print "[FAILED TO UPDATE CATALOG]"
+		print d
 
 def getnumnodes(config_dict):
 	cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
@@ -171,6 +252,25 @@ def get_runSQL_config(configfilename):
 				config_dict['localnode.username'] = cp.get('fakesection', 'localnode.username')
 				config_dict['localnode.passwd'] = cp.get('fakesection', 'localnode.passwd')
 				config_dict['localnode.database'] = cp.get('fakesection', 'localnode.hostname').rsplit('/', 1)[-1]
+
+			# read the number of nodes
+			if cp.has_option('fakesection', 'numnodes'):
+				numnodes = cp.getint('fakesection', 'numnodes')
+				config_dict['catalog.numnodes'] = numnodes
+
+			# read node data and print out info
+			if cp.has_option('fakesection', 'node1.driver'):
+				for node in range(1, numnodes + 1):
+					for candidate in ['driver', 'hostname', 'username', 'passwd', 'database']:
+						# test if candidate exists before adding to dictionary
+						if cp.has_option('fakesection', "node" + str(node) + "." + candidate):
+							# print cp.get('fakesection', "node" + str(node) + "." + candidate)
+							config_dict["node" + str(node) + "." + candidate] = cp.get('fakesection', "node" + str(node) + "." + candidate)
+						else:
+							if candidate == "database":
+								config_dict["node" + str(node) + ".database"] = cp.get('fakesection', "node" + str(node) + ".hostname").rsplit('/', 1)[-1]
+							else:
+								print "error: candidate not found"
 
 			return config_dict
 	else:
@@ -507,7 +607,7 @@ def read_catalog(config_dict, table_list):
 	next(itercars)
 	for car in itercars:
 		sql = sql + " OR tname = \'" + car + '\''
-	print sql
+	# print sql
 
 	# read the node data
 	node_list = []
@@ -528,7 +628,7 @@ def read_catalog(config_dict, table_list):
 				while True:
 					row = cursor.fetchone()
 					if row == None:
-						print
+						# print
 						break
 					node_list.append(row)
 			except OperationalError, msg:
@@ -555,7 +655,9 @@ def read_catalog(config_dict, table_list):
 			config_dict['node'+str(nodeid)+'.passwd'] = entry['nodepasswd']
 			config_dict['node'+str(nodeid)+'.database'] = entry['nodeurl'].rsplit('/', 1)[-1]
 	else:
+		print "read_catalog: No tables information found on dtables"
 		config_dict['catalog.numnodes'] = 0
+		update_DDL_catalog(config_dict,table_list)
 	return config_dict
 
 
@@ -662,15 +764,15 @@ def join_tables(config_dict, connections, table1, table2, input_sql_query):
 	for nodeid in range(1, config_dict["catalog.numnodes"]+1):
 		if (config_dict['node'+str(nodeid)+'.database']==l_db) and (config_dict['node'+str(nodeid)+'.hostname'] == l_hn):
 			localnodeid = nodeid
-			print "The localnode is node " + str(localnodeid) + " that will coordinate work with other nodes..."
+			# print "The localnode is node " + str(localnodeid) + " that will coordinate work with other nodes..."
 			try:
 				localnodecursor = connections[localnodeid-1].cursor(OrderedDictCursor)
 				create_temp_sql = "CREATE TEMPORARY TABLE IF NOT EXISTS {0} AS (SELECT * FROM {1})".format(table1.upper(), table1.upper())
-				print create_temp_sql
+				# print create_temp_sql
 				localnodecursor.execute(create_temp_sql.strip() + ';')
 				connections[localnodeid-1].commit()
 				create_temp_sql_2 = "CREATE TEMPORARY TABLE IF NOT EXISTS {0} AS (SELECT * FROM {1})".format(table2.upper(), table2.upper())
-				print create_temp_sql_2
+				# print create_temp_sql_2
 				localnodecursor.execute(create_temp_sql_2.strip() + ';')
 				connections[localnodeid-1].commit()
 			except pymysql.MySQLError as e:
@@ -801,54 +903,63 @@ def main():
 
 	else:
 		# run SQL
-		# parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
-		
-
 		# read configuration and return a dictionary -------------------------------
 		temp = "PARSING " + str(args.configfile) + "..."
 		print
-		print temp.center(80, " ")
-		catalog_dict = get_runSQL_config(args.configfile)
+		# print temp.center(80, " ")
+		config_dict = get_runSQL_config(args.configfile)
 
-		print_pretty_dict(catalog_dict)
+		# print_pretty_dict(config_dict)
 
 		# read sql commands for a list of tables -----------------------------------
 		sql_commands = read_SQL(args.csvfile_or_sqlfile)
-		table_list = get_tables_real_names(sql_commands[0])
-		print
-		print "-" * 80
-		print
+		table_list = []
 
-		# read catalog for a list of node -----------------------------------
-		print "READING CATALOG...".center(80, " ")
-		print
-		nodes_dict = read_catalog(catalog_dict, table_list);
-		print_pretty_dict(nodes_dict)
-		print
-		print "-" * 80
-		print
-
-		# run the commands against the nodes ---------------------------------------
-		print "EXECUTING SQL COMMANDS ON NODES...".center(80, " ")
-		print
-		node_connections = get_connections(nodes_dict)
-		if len(node_connections) == 0:
-			print "Terminating due to connection failures..."
-			sys.exit()
-		
-
-		# If a join is deteched, then run join table method
-		if detect_join(sql_commands[0]):
-			# a join was detected
-			# if the partition method is range or hash, then run join
-			if (nodes_dict['node1.partmtd'] == 1 or nodes_dict['node1.partmtd'] == 2):
-				join_tables(nodes_dict, node_connections, table_list[0], table_list[1], sql_commands[0])
-			else:
-				print "TODO!!!! A NONPARTITION METHOD USED BUT JOIN WAS DETECTED!"
-		else:
-			# no join, no worries
+		if sql_commands[0].split()[0].upper() == "CREATE":
+			print "CREATE TABLE DETECTED IN DDL... UPDATING CATALOG WITH NEW TABLES...".center(80, " ")
+			for command in sql_commands:
+				if command.split()[0].upper() == "CREATE":
+					table_list.append((re.split('\s|\(',command)[2]))
+			node_connections = get_connections(config_dict)
+			print table_list
+			update_DDL_catalog(config_dict,table_list)
 			run_commmands_against_nodes(node_connections, sql_commands)
-	
+		else:
+			table_list = get_tables_real_names(sql_commands[0])
+			print
+			print "-" * 80
+			print
+
+			# read catalog for a list of node -----------------------------------
+			print "READING CATALOG...".center(80, " ")
+			print
+			nodes_dict = read_catalog(config_dict, table_list)
+			# print_pretty_dict(nodes_dict)
+			print
+			print "-" * 80
+			print
+
+			# run the commands against the nodes ---------------------------------------
+			print "EXECUTING SQL COMMANDS ON NODES...".center(80, " ")
+			print
+			node_connections = get_connections(nodes_dict)
+			if len(node_connections) == 0:
+				print "Terminating due to connection failures..."
+				sys.exit()
+			
+
+			# If a join is deteched, then run join table method
+			if detect_join(sql_commands[0]):
+				# a join was detected
+				# if the partition method is range or hash, then run join
+				if (nodes_dict['node1.partmtd'] == 1 or nodes_dict['node1.partmtd'] == 2):
+					join_tables(nodes_dict, node_connections, table_list[0], table_list[1], sql_commands[0])
+				else:
+					print "TODO!!!! A NONPARTITION METHOD USED BUT JOIN WAS DETECTED!"
+			else:
+				# no join, no worries
+				run_commmands_against_nodes(node_connections, sql_commands)
+		
 
 
 	
