@@ -709,7 +709,6 @@ def move_table(connections, localnodeid, input_table, OrderedDictCursor, localno
 					# construct the sql_statement
 					values = ', '.join(["%s" for i in range(len(row))])
 					sql_statement = "INSERT INTO {0} VALUES ({a})".format(input_table, a=values)
-
 					try:
 						# print rowargs
 						localnodecursor.execute(sql_statement, rowargs)
