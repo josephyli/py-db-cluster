@@ -1,4 +1,5 @@
 import argparse
+import csv
 import os
 import pymysql.cursors
 import re
@@ -17,23 +18,20 @@ from sqlparse.sql import IdentifierList
 from sqlparse.tokens import DML
 from sqlparse.tokens import Keyword
 
-# preserves column order
-class OrderedDictCursor(DictCursorMixin, Cursor):
-    dict_type = OrderedDict
 
-# returns a list of sql commands as strings
-def read_SQL(sqlfilename):
-	f = open(sqlfilename, 'r')
-	sqlfile = f.read()
-	sqlfile.strip()
-	f.close()
-	temp = filter(None, sqlfile.split(';'))
-	sql_commands = []
-	# filter out white space from file input
-	for c in temp:
-		if c != "\n":
-			sql_commands.append(c)
-	return sql_commands
+def test_for_table_name(configfilename):
+	if os.path.isfile(configfilename):
+		with open(configfilename) as stream:
+			stream = StringIO("[fakesection]\n" + stream.read())
+
+			# read/parse catalog data
+			cp = SafeConfigParser()
+			cp.readfp(stream)
+
+			if cp.has_option('fakesection', 'tablename'):
+				return True
+			else:
+				return False
 
 def getnumnodes(config_dict):
 	cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
@@ -63,6 +61,7 @@ def getnumnodes(config_dict):
 			print "Error getting numnode: ", msg
 			return -1
 	return numnodes
+
 
 def get_tables(sql_commands):
 	from itertools import chain
@@ -128,9 +127,28 @@ def is_subselect(parsed):
 	return False
 # --------end of parsing table code--------------------------------------
 
+# RUN SQL CODE ---------------------------------------------------------
+# preserves column order
+class OrderedDictCursor(DictCursorMixin, Cursor):
+    dict_type = OrderedDict
+
+# returns a list of sql commands as strings
+def read_SQL(sqlfilename):
+	f = open(sqlfilename, 'r')
+	sqlfile = f.read()
+	sqlfile.strip()
+	f.close()
+	temp = filter(None, sqlfile.split(';'))
+	sql_commands = []
+	# filter out white space from file input
+	for c in temp:
+		if c != "\n":
+			sql_commands.append(c)
+	return sql_commands
+
 # returns a dict with all catalog information
 # responsible for parsing the config file
-def get_config(configfilename):
+def get_runSQL_config(configfilename):
 	config_dict = {}
 
 	if os.path.isfile(configfilename):
@@ -147,16 +165,332 @@ def get_config(configfilename):
 			config_dict['catalog.passwd'] = cp.get('fakesection', 'catalog.passwd')
 			config_dict['catalog.database'] = cp.get('fakesection', 'catalog.hostname').rsplit('/', 1)[-1]
 
-			config_dict['localnode.driver'] = cp.get('fakesection', 'localnode.driver')
-			config_dict['localnode.hostname'] = cp.get('fakesection', 'localnode.hostname')
-			config_dict['localnode.username'] = cp.get('fakesection', 'localnode.username')
-			config_dict['localnode.passwd'] = cp.get('fakesection', 'localnode.passwd')
-			config_dict['localnode.database'] = cp.get('fakesection', 'localnode.hostname').rsplit('/', 1)[-1]
+			if cp.has_option('fakesection', 'localnode.driver'):
+				config_dict['localnode.driver'] = cp.get('fakesection', 'localnode.driver')
+				config_dict['localnode.hostname'] = cp.get('fakesection', 'localnode.hostname')
+				config_dict['localnode.username'] = cp.get('fakesection', 'localnode.username')
+				config_dict['localnode.passwd'] = cp.get('fakesection', 'localnode.passwd')
+				config_dict['localnode.database'] = cp.get('fakesection', 'localnode.hostname').rsplit('/', 1)[-1]
 
 			return config_dict
 	else:
 		print("No config file found at", configfilename)
 		return null
+
+def loadCSV(configfilename, csvfilename):
+	csv_list = []
+	with open(csvfilename, 'rb') as csvfile:
+		dialect = csv.Sniffer().sniff(csvfile.read(), delimiters=',|;')
+		csvfile.seek(0)
+		reader = csv.reader(csvfile, dialect)
+
+		for row in reader:
+			csv_list.append(row)
+	return csv_list
+
+# returns a dict with all nodes information
+# responsible for parsing the config file
+def get_loadcsv_config(configfilename):
+	config_dict = {}
+
+	if os.path.isfile(configfilename):
+		with open(configfilename) as stream:
+			# pass into string & add a header
+			stream = StringIO("[fakesection]\n" + stream.read())
+
+			# read/parse catalog data
+			cp = SafeConfigParser()
+			cp.readfp(stream)
+			config_dict['catalog.driver'] = cp.get('fakesection', 'catalog.driver')
+			config_dict['catalog.hostname'] = cp.get('fakesection', 'catalog.hostname')
+			config_dict['catalog.username'] = cp.get('fakesection', 'catalog.username')
+			config_dict['catalog.passwd'] = cp.get('fakesection', 'catalog.passwd')
+			config_dict['catalog.database'] = cp.get('fakesection', 'catalog.hostname').rsplit('/', 1)[-1]
+
+			config_dict['catalog.tablename'] = cp.get('fakesection', 'tablename')
+
+			partition_method_string = cp.get('fakesection', 'partition.method')
+			if partition_method_string=='notpartition':
+				config_dict['catalog.partition.method'] = 0
+			if partition_method_string=='range':
+				config_dict['catalog.partition.method'] = 1
+			elif partition_method_string == 'hash':
+				config_dict['catalog.partition.method'] = 2
+
+			if cp.has_option('fakesection', 'partition.column'):
+				config_dict['catalog.partition.column'] = cp.get('fakesection', 'partition.column')
+
+			numnodes = 0
+			# read the number of nodes... if it's listed
+			if cp.has_option('fakesection', 'numnodes'):
+				numnodes = cp.getint('fakesection', 'numnodes')
+				config_dict['catalog.numnodes'] = numnodes
+			else: 
+				# connect to catalog to get the supposed number of nodes
+				config_dict["catalog.numnodes"] = getnumnodes(config_dict)
+				numnodes = config_dict["catalog.numnodes"]
+
+			# read depending on partition method
+			if (partition_method_string == 'notpartition'):
+				print "Loading the CSV based not-partitioning"
+				if numnodes != config_dict['catalog.numnodes']:
+					print "Error! dtables's number of nodes does not match the partitioning. Exiting..."
+					sys.exit(1)
+				return config_dict
+
+			elif (partition_method_string == 'range'):
+				print "Loading the CSV based range partitioning"
+				config_dict['partition.column'] = cp.get('fakesection', 'partition.column')
+				# read node data and compare to dtables
+				node = 1
+				while (cp.has_option('fakesection', "partition.node" + str(node) + ".param1")) or (cp.has_option('fakesection', "partition.node" + str(node) + ".param2")): 
+					for parameter in ['param1', 'param2']:
+						# test if candidate exists before adding to dictionary
+						if cp.has_option('fakesection', "partition.node" + str(node) + "." + parameter):
+							config_dict["partition.node" + str(node) + "." + parameter] = cp.getint('fakesection', "partition.node" + str(node) + "." + parameter)
+					node += 1
+				# check if dtables matches number in partition
+				if numnodes != node - 1:
+					print "Error! dtables's number of nodes does not match the partitioning. Exiting..."
+					sys.exit(1)
+				return config_dict
+
+			elif (cp.get('fakesection', 'partition.method') == 'hash'):
+				print "Loading the CSV based hash partitioning"
+				config_dict['catalog.numnodes'] = cp.getint('fakesection', 'partition.param1')
+				config_dict['partition.column'] = cp.get('fakesection', 'partition.column')
+				config_dict['partition.param1'] = cp.getint('fakesection', 'partition.param1')
+				numnodes = getnumnodes(config_dict)
+				if numnodes != config_dict['partition.param1']:
+					print "Error! dtables's number of nodes does not match the partitioning. Exiting..."
+					sys.exit(1)
+				return config_dict
+	else:
+		print("No config file found at", configfilename)
+		return null
+
+# update node data from catalog
+def update_catalog_with_partitions(config_dict):
+	cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
+	cat_usr = config_dict['catalog.username']
+	cat_pw = config_dict['catalog.passwd']
+	cat_dr = config_dict['catalog.driver']
+	cat_db = config_dict['catalog.database']
+
+	tablename = config_dict['catalog.tablename']
+	pm = config_dict['catalog.partition.method']
+
+	if pm != 0:
+		pc = config_dict['catalog.partition.column']
+	
+	try:
+		number_of_nodes = config_dict["catalog.numnodes"]
+	except KeyError as e:
+		print "The number of nodes was not specified in the config file..."
+
+	print "THE NUMBER OF NODES IS",  number_of_nodes
+
+	sql = []
+
+	# if using a hashing partition method, the table is updated differently
+	if pm == 2:
+		p1 = config_dict['partition.param1']
+		for i in range(number_of_nodes):
+			sql.append("UPDATE dtables SET partmtd = 2, partcol = \'%s\', partparam1 = %d, partparam2 = \'NULL\' WHERE tname=\'%s\' AND nodeid = %d; " % (pc, int(p1), tablename, int(i) + 1))
+		print sql
+	elif pm == 1:
+		# prepares the sql statement to insert into catalog the tables in each node for range
+		for nodeid in range(1, number_of_nodes + 1):
+			try: 
+				p1 = config_dict['partition.node'+str(nodeid)+'.param1']
+				p2 = config_dict['partition.node'+str(nodeid)+'.param2']
+			except KeyError:
+				print "Partitions in configuration file do not match the number of nodes in catalog... Exiting"
+				sys.exit(1)
+			sql.append("UPDATE dtables SET partmtd = %d, partcol = \'%s\', partparam1 = %d, partparam2 = %d WHERE tname=\'%s\' AND nodeid = %d; " % (pm, pc, p1, p2, tablename, nodeid))
+	try:
+		# connect and execute the sql statement
+		connection = pymysql.connect(host=cat_hn,
+					user=cat_usr,
+					password=cat_pw,
+					db=cat_db,
+					charset='utf8mb4',
+					cursorclass=pymysql.cursors.DictCursor)
+
+		# print "[SUCCESSFUL CATALOG CONNECTION] <"+connection.host+" - "+connection.db+">", connection
+		print
+
+		with connection.cursor() as cursor:
+			# execute every sql command
+			for command in sql:
+				try:
+					cursor.execute(command.strip() + ';')
+					connection.commit()
+				except OperationalError, msg:
+					print "Command skipped: ", msg
+	except pymysql.err.InternalError as d:
+		print "[FAILED TO UPDATE CATALOG]"
+		print d
+
+
+	# read the node data
+	sql = ["select * from dtables;"]
+	node_list = []
+	try:
+		connection = pymysql.connect(host=cat_hn,
+					user=cat_usr,
+					password=cat_pw,
+					db=cat_db,
+					charset='utf8mb4',
+					cursorclass=pymysql.cursors.DictCursor)
+		with connection.cursor() as cursor:
+			# execute every sql command
+			for command in sql:
+				try:
+					cursor.execute(command.strip() + ';')
+					while True:
+						row = cursor.fetchone()
+						if row == None:
+							break
+						node_list.append(row)
+				except OperationalError, msg:
+					print "Command skipped: ", msg
+					connection.commit()
+
+	except:
+			print "couldn't connect to catalog"
+	if node_list:
+		# access the list of node dicts
+		for entry in node_list:
+			nodeid = entry["nodeid"]
+
+			config_dict['node'+str(nodeid)+'.hostname'] = entry['nodeurl']
+			config_dict['node'+str(nodeid)+'.partmtd'] = entry['partmtd']
+			config_dict['node'+str(nodeid)+'.partparam1'] = entry['partparam1']
+			config_dict['node'+str(nodeid)+'.partparam2'] = entry['partparam2']
+			config_dict['node'+str(nodeid)+'.driver'] = entry['nodedriver']
+			config_dict['node'+str(nodeid)+'.username'] = entry['nodeuser']
+			config_dict['node'+str(nodeid)+'.tname'] = entry['tname']
+			config_dict['node'+str(nodeid)+'.passwd'] = entry['nodepasswd']
+			config_dict['node'+str(nodeid)+'.database'] = entry['nodeurl'].rsplit('/', 1)[-1]
+	else:
+		config_dict['catalog.numnodes'] = 0
+	return config_dict
+
+def not_partitioned_insert(csv_list, node_connections, config_dict):
+	print 
+	numnodes = config_dict['catalog.numnodes']
+
+	# construct the sql_statement
+	values = ', '.join(["%s" for i in range(len(csv_list[0]))])
+	sql_statement = "INSERT INTO " + config_dict['catalog.tablename'].upper() + " VALUES ({a})".format(a=values)
+	args = ()
+	try:
+		for i in range(len(csv_list)):
+			args = tuple(csv_list[i]) 
+			for node_index in range(1, numnodes+1):
+				with node_connections[node_index-1].cursor() as cursor:
+					cursor.execute(sql_statement, args)
+					res = cursor.fetchone()
+					node_connections[node_index-1].commit()
+					print "data committed to node " + str(node_index)
+	except pymysql.MySQLError as e:
+		print e
+	finally:
+		cursor.close()
+
+def range_insert(csv_list, node_connections, config_dict):
+	res = ""
+	columns = []
+
+	# identifying the partition column
+	for connection in node_connections:
+		with connection.cursor() as cursor:
+			try:
+				cursor.execute("SHOW COLUMNS IN " +config_dict['catalog.tablename'].upper() + ";")
+				res = cursor.fetchall()
+				connection.commit()
+			except pymysql.MySQLError as e:
+				print e
+	for d in res:
+		columns.append(d['Field'])
+
+	partition_index = 0
+	for f in columns:
+		if f.lower() == config_dict['partition.column'].lower():
+			break
+		partition_index += 1
+
+	# print "Index",partition_index,"of",columns,"is the partition column"
+	numnodes = config_dict['catalog.numnodes']
+
+	try:
+		# construct the sql_statement
+		values = ', '.join(["%s" for i in columns])
+		sql_statement = "INSERT INTO " + config_dict['catalog.tablename'].upper() + " VALUES ({a})".format(a=values)
+		args = ()
+
+		for i in range(len(csv_list)):
+			args = tuple(csv_list[i]) 
+			for node_index in range(1, numnodes+1):
+				# if the item in csv is greater than the lower limit (param1) but smaller than the upper limit (param2) of the node_index 
+				if ((int(csv_list[i][partition_index]) > int(config_dict['partition.node'+str(node_index)+'.param1'])) and (int(csv_list[i][partition_index]) <= int(config_dict['partition.node'+str(node_index)+'.param2']))):
+					with node_connections[node_index-1].cursor() as cursor:
+						cursor.execute(sql_statement,args)
+						res = cursor.fetchone()
+						node_connections[node_index-1].commit()
+						print "data committed to node " + str(node_index)
+	except pymysql.MySQLError as e:
+		print e
+	finally:
+		cursor.close()
+			
+
+
+def hash_insert(csv_list, node_connections, config_dict):
+	res = ""
+	columns = []
+
+	# identifying the partition column
+	for connection in node_connections:
+		with connection.cursor() as cursor:
+			try:
+				cursor.execute("SHOW COLUMNS IN " +config_dict['catalog.tablename'].upper() + ";")
+				res = cursor.fetchall()
+				connection.commit()
+			except pymysql.MySQLError as e:
+				print e
+	for d in res:
+		columns.append(d['Field'])
+
+	partition_index = 0
+	for f in columns:
+		if f.lower() == config_dict['partition.column'].lower():
+			break
+		partition_index += 1
+
+	print "Index",partition_index,"of",columns,"is the partition column"
+
+	try:
+		# construct the sql_statement
+		values = ', '.join(["%s" for i in columns])
+		sql_statement = "INSERT INTO " + config_dict['catalog.tablename'].upper() + " VALUES ({a})".format(a=values)
+		args = ()
+
+		for i in range(len(csv_list)):		
+			# convert each row into a tuple to be passed
+			args = tuple(csv_list[i]) 
+
+			nodeid = int(csv_list[i][partition_index]) % int(config_dict['catalog.numnodes'])
+			with node_connections[nodeid].cursor() as cursor:
+				cursor.execute(sql_statement, args)
+				res = cursor.fetchone()
+				node_connections[nodeid].commit()
+				print "data committed to node " + str(nodeid + 1)
+	except pymysql.MySQLError as e:
+		print e
+	finally:
+		cursor.close()
 
 # reads metadata about the nodes from the catalog database
 # uses a list of tables that need to be created in the catalog to know what nodes are needed
@@ -184,8 +518,8 @@ def read_catalog(config_dict, table_list):
 					db=cat_db,
 					charset='utf8mb4',
 					cursorclass=pymysql.cursors.DictCursor)
-		print "[SUCCESSFUL CATALOG CONNECTION] <"+connection.host+" - "+connection.db+">", connection
-		print
+		# print "[SUCCESSFUL CATALOG CONNECTION] <"+connection.host+" - "+connection.db+">", connection
+		# print
 
 		with connection.cursor() as cursor:
 			# select every node with the table name from the sqlfile
@@ -202,7 +536,7 @@ def read_catalog(config_dict, table_list):
 				connection.commit()
 
 	except:
-			print "couldn't connect to catalog"
+			print "read_catalog: couldn't connect to catalog"
 
 	# if node list is not empty, then pass it into the config_dict
 	if node_list:
@@ -322,65 +656,6 @@ def detect_join(sql_statement):
 
 def join_tables(config_dict, connections, table1, table2, input_sql_query):
 	#This function uses the config_dict, existing connections, and list of tables to join tables together
-	#connect to dtables, then get results from each node
-	cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
-	cat_usr = config_dict['catalog.username']
-	cat_pw = config_dict['catalog.passwd']
-	cat_dr = config_dict['catalog.driver']
-	cat_db = config_dict['catalog.database']
-
-	# form statement to select all nodes with table1
-	sql = "SELECT * FROM dtables WHERE tname = \'" + table1 + "\'"
-
-	# connect to catalog to get table1's partitions
-	part_list1 = []
-	try:
-		connection = pymysql.connect(host=cat_hn,
-					user=cat_usr,
-					password=cat_pw,
-					db=cat_db,
-					charset='utf8mb4',
-					cursorclass=pymysql.cursors.DictCursor)
-		with connection.cursor() as cursor:
-			# select every node with the table name from the sqlfile
-			try:
-				cursor.execute(sql.strip() + ';')
-				while True:
-					row = cursor.fetchone()
-					if row == None:
-						print
-						break
-					node_list1.append(row)
-			except OperationalError, msg:
-				print "Command skipped: ", msg
-				connection.commit()
-	except:
-			print "couldn't connect to catalog"
-
-	# form statement to select all partitions with table1
-	sql = "SELECT * FROM dtables WHERE tname = \'" + table2 + "\'"
-
-	# connect to catalog to get table2's partitions
-	part_list2 = []
-	try:
-		with connection.cursor() as cursor:
-			# select every node with the table name from the sqlfile
-			try:
-				cursor.execute(sql.strip() + ';')
-				while True:
-					row = cursor.fetchone()
-					if row == None:
-						print
-						break
-					part_list2.append(row)
-			except OperationalError, msg:
-				print "Command skipped: ", msg
-				connection.commit()
-	except:
-			print "couldn't connect to catalog"
-	finally:
-		connection.close()
-
 	# identify the localnode which will have the temporary table and create the temp table
 	l_hn = config_dict['localnode.hostname']
 	l_db = config_dict['localnode.database']
@@ -448,9 +723,6 @@ def move_table(connections, localnodeid, input_table, OrderedDictCursor, localno
 				print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.rowargs[0])
 
 
-	# print "We created temporary table {0} and {1}... Now to write code for joining them!".format(table1.upper(), table2.upper())
-	### TODO - close connection
-
 # somewhat based on http://stackoverflow.com/questions/17330139/python-printing-a-dictionary-as-a-horizontal-table-with-headers
 def printTable(myDict, colList=None):
 	some_lock = threading.Lock()
@@ -472,79 +744,114 @@ def print_pretty_dict(idict):
 def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument("configfile", help="Location of Config File, See the README for more information")
-	parser.add_argument("sqlfile", help="Location of SQL File, See the README for more information")
-	parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
+	parser.add_argument("csvfile_or_sqlfile", help="Location of CSV or SQL File, See the README for more information")
 	global args
 	args = parser.parse_args()
-	print
-	print "=" * 80
-	print
 
-	# read configuration and return a dictionary -------------------------------
-	temp = "PARSING " + str(args.configfile) + "..."
-	print
-	print temp.center(80, " ")
-	catalog_dict = get_config(args.configfile)
-	print_pretty_dict(catalog_dict)
+	if test_for_table_name(args.configfile):
+		# table detected -> run load CSV
+		if args.csvfile_or_sqlfile[-4:].lower() != ".csv":
+			print "Are you certain you are providing a CSV file?"
+			sys.exit(1)
+		# read the config file into a dictionary
+		print "READING CONFIG FILE...".center(80, " ")
+		print
+		config_dict = get_loadcsv_config(args.configfile)
+		print
+		print "-" * 80
+		print
 
-	# read sql commands for a list of tables -----------------------------------
-	sql_commands = read_SQL(args.sqlfile)
-	table_list = get_tables_real_names(sql_commands[0])
-	print
-	print "-" * 80
-	print
+		# update the catalog
+		print "UPDATING CATALOG...".center(80, " ")
+		print
+		node_list = update_catalog_with_partitions(config_dict)
+		print
+		print "-" * 80
+		print
 
-	# read catalog for a list of node -----------------------------------
-	print "READING CATALOG...".center(80, " ")
-	print
-	nodes_dict = read_catalog(catalog_dict, table_list);
-	print_pretty_dict(nodes_dict)
-	print
-	print "-" * 80
-	print
+		# return a list of connections to all nodes
+		print "CREATING CONNECTIONS...".center(80, " ")
+		print
+		node_connections = get_connections(config_dict)
+		if len(node_connections) == 0:
+			print "Terminating due to connection failures..."
+			sys.exit()
+		print
+		for c in node_connections:
+			print "HOST: " + c.host + " DB: " + c.db + " " + str(c)
+		print
+		print "-" * 80
+		print
 
+		# read the csv file into a list
+		csv_list = loadCSV(args.configfile, args.csvfile_or_sqlfile)
 
-	# return a list of connections to all nodes --------------------------------
-	# print "CREATING CONNECTIONS...".center(80, " ")
-	# print
-
-	# node_connections = get_connections(nodes_dict)
-	# # if no connections were made, terminate the program, comment this out for testing
-	# if len(node_connections) == 0:
-	# 	print "Terminating due to connection failures..."
-	# 	sys.exit()
-	# print "# of connections:", str(len(node_connections))
-	# print
-	# for c in node_connections:
-	# 	print "HOST: " + c.host + " DB: " + c.db + " " + str(c)
-	# print
-	# print "-" * 80
-	# print
-
-	# run the commands against the nodes ---------------------------------------
-	print "EXECUTING SQL COMMANDS ON NODES...".center(80, " ")
-	print
-	node_connections = get_connections(nodes_dict)
-	if len(node_connections) == 0:
-		print "Terminating due to connection failures..."
-		sys.exit()
+		# handle different types of partitioning methods
+		if config_dict['catalog.partition.method'] == 0: # if no partitioning scheme is set - csv is propagated to all nodes
+			print "Using Not-Partitioned Partitioning as Partitioning Method..."
+			not_partitioned_insert(csv_list, node_connections, config_dict)
 
 
-	# a bit hardcoded for now ---
-	if detect_join(sql_commands[0]):
-		# a join was detected
-		# if the partition method is range or hash, then run join
-		if (nodes_dict['node1.partmtd'] == 1 or nodes_dict['node1.partmtd'] == 2):
-			join_tables(nodes_dict, node_connections, table_list[0], table_list[1], sql_commands[0])
-		else:
-			print "TODO!!!! A NONPARTITION METHOD USED BUT JOIN WAS DETECTED!"
+		elif config_dict['catalog.partition.method'] == 1: # if range partitioning is set
+			print "Using Range Partitioning as Partitioning Method..."
+			range_insert(csv_list, node_connections, config_dict)
+
+		elif config_dict['catalog.partition.method'] == 2: # if hash partitioning is set
+			print "Using Hash Partitioning as Partitioning Method..."
+			hash_insert(csv_list, node_connections, config_dict)
+
 	else:
-		# no join, no worries
-		run_commmands_against_nodes(node_connections, sql_commands)
+		# run SQL
+		# parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
+		
 
-	print
-	print "=" * 80
-	print
+		# read configuration and return a dictionary -------------------------------
+		temp = "PARSING " + str(args.configfile) + "..."
+		print
+		print temp.center(80, " ")
+		catalog_dict = get_runSQL_config(args.configfile)
 
+		print_pretty_dict(catalog_dict)
+
+		# read sql commands for a list of tables -----------------------------------
+		sql_commands = read_SQL(args.csvfile_or_sqlfile)
+		table_list = get_tables_real_names(sql_commands[0])
+		print
+		print "-" * 80
+		print
+
+		# read catalog for a list of node -----------------------------------
+		print "READING CATALOG...".center(80, " ")
+		print
+		nodes_dict = read_catalog(catalog_dict, table_list);
+		print_pretty_dict(nodes_dict)
+		print
+		print "-" * 80
+		print
+
+		# run the commands against the nodes ---------------------------------------
+		print "EXECUTING SQL COMMANDS ON NODES...".center(80, " ")
+		print
+		node_connections = get_connections(nodes_dict)
+		if len(node_connections) == 0:
+			print "Terminating due to connection failures..."
+			sys.exit()
+		
+
+		# If a join is deteched, then run join table method
+		if detect_join(sql_commands[0]):
+			# a join was detected
+			# if the partition method is range or hash, then run join
+			if (nodes_dict['node1.partmtd'] == 1 or nodes_dict['node1.partmtd'] == 2):
+				join_tables(nodes_dict, node_connections, table_list[0], table_list[1], sql_commands[0])
+			else:
+				print "TODO!!!! A NONPARTITION METHOD USED BUT JOIN WAS DETECTED!"
+		else:
+			# no join, no worries
+			run_commmands_against_nodes(node_connections, sql_commands)
+	
+
+
+	
 if __name__ == "__main__":
 	main()
