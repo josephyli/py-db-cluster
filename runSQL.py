@@ -5,6 +5,7 @@ import pymysql.cursors
 import re
 import sqlparse
 import sys
+import time
 import threading
 
 from ConfigParser import SafeConfigParser
@@ -325,7 +326,7 @@ def get_loadcsv_config(configfilename):
 			if cp.has_option('fakesection', 'numnodes'):
 				numnodes = cp.getint('fakesection', 'numnodes')
 				config_dict['catalog.numnodes'] = numnodes
-			else: 
+			else:
 				# connect to catalog to get the supposed number of nodes
 				config_dict["catalog.numnodes"] = getnumnodes(config_dict)
 				numnodes = config_dict["catalog.numnodes"]
@@ -343,7 +344,7 @@ def get_loadcsv_config(configfilename):
 				config_dict['partition.column'] = cp.get('fakesection', 'partition.column')
 				# read node data and compare to dtables
 				node = 1
-				while (cp.has_option('fakesection', "partition.node" + str(node) + ".param1")) or (cp.has_option('fakesection', "partition.node" + str(node) + ".param2")): 
+				while (cp.has_option('fakesection', "partition.node" + str(node) + ".param1")) or (cp.has_option('fakesection', "partition.node" + str(node) + ".param2")):
 					for parameter in ['param1', 'param2']:
 						# test if candidate exists before adding to dictionary
 						if cp.has_option('fakesection', "partition.node" + str(node) + "." + parameter):
@@ -382,7 +383,7 @@ def update_catalog_with_partitions(config_dict):
 
 	if pm != 0:
 		pc = config_dict['catalog.partition.column']
-	
+
 	try:
 		number_of_nodes = config_dict["catalog.numnodes"]
 	except KeyError as e:
@@ -401,7 +402,7 @@ def update_catalog_with_partitions(config_dict):
 	elif pm == 1:
 		# prepares the sql statement to insert into catalog the tables in each node for range
 		for nodeid in range(1, number_of_nodes + 1):
-			try: 
+			try:
 				p1 = config_dict['partition.node'+str(nodeid)+'.param1']
 				p2 = config_dict['partition.node'+str(nodeid)+'.param2']
 			except KeyError:
@@ -478,7 +479,7 @@ def update_catalog_with_partitions(config_dict):
 	return config_dict
 
 def not_partitioned_insert(csv_list, node_connections, config_dict):
-	print 
+	print
 	numnodes = config_dict['catalog.numnodes']
 
 	# construct the sql_statement
@@ -487,7 +488,7 @@ def not_partitioned_insert(csv_list, node_connections, config_dict):
 	args = ()
 	try:
 		for i in range(len(csv_list)):
-			args = tuple(csv_list[i]) 
+			args = tuple(csv_list[i])
 			for node_index in range(1, numnodes+1):
 				with node_connections[node_index-1].cursor() as cursor:
 					cursor.execute(sql_statement, args)
@@ -531,9 +532,9 @@ def range_insert(csv_list, node_connections, config_dict):
 		args = ()
 
 		for i in range(len(csv_list)):
-			args = tuple(csv_list[i]) 
+			args = tuple(csv_list[i])
 			for node_index in range(1, numnodes+1):
-				# if the item in csv is greater than the lower limit (param1) but smaller than the upper limit (param2) of the node_index 
+				# if the item in csv is greater than the lower limit (param1) but smaller than the upper limit (param2) of the node_index
 				if ((int(csv_list[i][partition_index]) > int(config_dict['partition.node'+str(node_index)+'.param1'])) and (int(csv_list[i][partition_index]) <= int(config_dict['partition.node'+str(node_index)+'.param2']))):
 					with node_connections[node_index-1].cursor() as cursor:
 						cursor.execute(sql_statement,args)
@@ -544,7 +545,7 @@ def range_insert(csv_list, node_connections, config_dict):
 		print e
 	finally:
 		cursor.close()
-			
+
 
 
 def hash_insert(csv_list, node_connections, config_dict):
@@ -577,9 +578,9 @@ def hash_insert(csv_list, node_connections, config_dict):
 		sql_statement = "INSERT INTO " + config_dict['catalog.tablename'].upper() + " VALUES ({a})".format(a=values)
 		args = ()
 
-		for i in range(len(csv_list)):		
+		for i in range(len(csv_list)):
 			# convert each row into a tuple to be passed
-			args = tuple(csv_list[i]) 
+			args = tuple(csv_list[i])
 
 			nodeid = int(csv_list[i][partition_index]) % int(config_dict['catalog.numnodes'])
 			with node_connections[nodeid].cursor() as cursor:
@@ -761,6 +762,7 @@ def join_tables(config_dict, connections, table1, table2, input_sql_query):
 	# identify the localnode which will have the temporary table and create the temp table
 	l_hn = config_dict['localnode.hostname']
 	l_db = config_dict['localnode.database']
+
 	for nodeid in range(1, config_dict["catalog.numnodes"]+1):
 		if (config_dict['node'+str(nodeid)+'.database']==l_db) and (config_dict['node'+str(nodeid)+'.hostname'] == l_hn):
 			localnodeid = nodeid
@@ -780,8 +782,17 @@ def join_tables(config_dict, connections, table1, table2, input_sql_query):
 			finally:
 				break
 
-	move_table(connections, localnodeid, table1, OrderedDictCursor, localnodecursor)
-	move_table(connections, localnodeid, table2, OrderedDictCursor, localnodecursor)
+	t = threading.Thread(target=move_table, args = (connections, localnodeid, table1, OrderedDictCursor, localnodecursor))
+	t.start()
+
+	while threading.active_count() > 1:
+		time.sleep(1)
+
+	f = threading.Thread(target=move_table, args = (connections, localnodeid, table2, OrderedDictCursor, localnodecursor))
+	f.start()
+
+	while threading.active_count() > 1:
+		time.sleep(1)
 
 	# use the original query on the new temporary tables
 	try:
@@ -818,10 +829,9 @@ def move_table(connections, localnodeid, input_table, OrderedDictCursor, localno
 						connections[localnodeid-1].commit()
 					except pymysql.MySQLError as e:
 						print e
-					finally:
-						cursor.close()
+
 			except pymysql.MySQLError as e:
-				print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.rowargs[0])
+				print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}".format(e)
 
 
 # somewhat based on http://stackoverflow.com/questions/17330139/python-printing-a-dictionary-as-a-horizontal-table-with-headers
@@ -946,7 +956,6 @@ def main():
 			if len(node_connections) == 0:
 				print "Terminating due to connection failures..."
 				sys.exit()
-			
 
 			# If a join is deteched, then run join table method
 			if detect_join(sql_commands[0]):
@@ -959,9 +968,7 @@ def main():
 			else:
 				# no join, no worries
 				run_commmands_against_nodes(node_connections, sql_commands)
-		
 
 
-	
 if __name__ == "__main__":
 	main()
