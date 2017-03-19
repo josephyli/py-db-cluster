@@ -277,7 +277,6 @@ def run_sql_commands_against_node(connection, sql_commands):
 		try:
 			for c in sql_commands:
 				cursor.execute(c.strip() + ';')
-				cols = set()
 				# while True:
 				d = cursor.fetchall()
 				if d == None:
@@ -321,7 +320,7 @@ def detect_join(sql_statement):
 		return False
 
 
-def join_tables(config_dict, connections, table1, table2, sql_query):
+def join_tables(config_dict, connections, table1, table2, input_sql_query):
 	#This function uses the config_dict, existing connections, and list of tables to join tables together
 	#connect to dtables, then get results from each node
 	cat_hn = re.findall( r'[0-9]+(?:\.[0-9]+){3}', config_dict['catalog.hostname'] )[0]
@@ -361,7 +360,7 @@ def join_tables(config_dict, connections, table1, table2, sql_query):
 	# form statement to select all partitions with table1
 	sql = "SELECT * FROM dtables WHERE tname = \'" + table2 + "\'"
 
-	# connect to catalog to get table2's nodes
+	# connect to catalog to get table2's partitions
 	part_list2 = []
 	try:
 		with connection.cursor() as cursor:
@@ -404,40 +403,23 @@ def join_tables(config_dict, connections, table1, table2, sql_query):
 			finally:
 				break
 
-	# store table1 in temporary table 'table1' on localnode
+	move_table(connections, localnodeid, table1, OrderedDictCursor, localnodecursor)
+	move_table(connections, localnodeid, table2, OrderedDictCursor, localnodecursor)
+
+	# use the original query on the new temporary tables
+	try:
+		localnodecursor.execute(input_sql_query.strip() + ';')
+		d = localnodecursor.fetchall()
+		printTable(d)
+	except pymysql.MySQLError as e:
+		print e
+	finally:
+		localnodecursor.close()
+
+def move_table(connections, localnodeid, input_table, OrderedDictCursor, localnodecursor):
 	for count,connection in enumerate(connections):
 		if count + 1 != localnodeid:
-			select_sql = "SELECT * FROM {0}".format(table1)
-
-			try:
-				cursor = connection.cursor(OrderedDictCursor)
-				cursor.execute(select_sql.strip() + ';')
-				# while True:
-				results = cursor.fetchall()
-				if results == None:
-					break
-				connection.commit()
-				# print "RESULTS",results
-				for row in results:
-					rowargs = tuple(row.values())
-					# construct the sql_statement
-					values = ', '.join(["%s" for i in range(len(row))])
-					sql_statement = "INSERT INTO {0} VALUES ({a})".format(table1, a=values)
-
-					try:
-						# print rowargs
-						localnodecursor.execute(sql_statement, rowargs)
-						res = localnodecursor.fetchone()
-						connections[localnodeid-1].commit()
-					except pymysql.MySQLError as e:
-						print e
-			except pymysql.MySQLError as e:
-				print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.rowargs[0])
-
-	# store table2 in temporary table 'table2' on localnode
-	for count,connection in enumerate(connections):
-		if count + 1 != localnodeid:
-			select_sql = "SELECT * FROM {0}".format(table2)
+			select_sql = "SELECT * FROM {0}".format(input_table)
 
 			try:
 				cursor = connection.cursor(OrderedDictCursor)
@@ -451,7 +433,7 @@ def join_tables(config_dict, connections, table1, table2, sql_query):
 					rowargs = tuple(row.values())
 					# construct the sql_statement
 					values = ', '.join(["%s" for i in range(len(row))])
-					sql_statement = "INSERT INTO {0} VALUES ({a})".format(table2, a=values)
+					sql_statement = "INSERT INTO {0} VALUES ({a})".format(input_table, a=values)
 
 					try:
 						# print rowargs
@@ -464,17 +446,7 @@ def join_tables(config_dict, connections, table1, table2, sql_query):
 						cursor.close()
 			except pymysql.MySQLError as e:
 				print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}, ERROR NUMBER: {}".format(e, e.rowargs[0])
-	
-	# use the original query on the new temporary tables
-	try:
-		localnodecursor.execute(sql_query.strip() + ';')
-		cols = set()
-		d = localnodecursor.fetchall()
-		printTable(d)
-	except pymysql.MySQLError as e:
-		print e
-	finally:
-		localnodecursor.close()
+
 
 	# print "We created temporary table {0} and {1}... Now to write code for joining them!".format(table1.upper(), table2.upper())
 	### TODO - close connection
@@ -556,7 +528,7 @@ def main():
 	if len(node_connections) == 0:
 		print "Terminating due to connection failures..."
 		sys.exit()
-	
+
 
 	# a bit hardcoded for now ---
 	if detect_join(sql_commands[0]):
