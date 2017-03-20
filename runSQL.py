@@ -860,11 +860,13 @@ def select_table(config_dict, connections, table1, input_sql_query):
 			finally:
 				break
 
-	t = threading.Thread(target=move_table, args = (connections, localnodeid, table1, OrderedDictCursor, localnodecursor))
-	t.start()
+	# if using hash or range partition, then read from other nodes using threads...
+	if config_dict['node1.partmtd'] != 0:
+		t = threading.Thread(target=move_table, args = (connections, localnodeid, table1, OrderedDictCursor, localnodecursor))
+		t.start()
 
-	while threading.active_count() > 1:
-		time.sleep(1)
+		while threading.active_count() > 1:
+			time.sleep(1)
 
 	# use the original query on the new temporary table
 	try:
