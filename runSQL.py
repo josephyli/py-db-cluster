@@ -409,6 +409,9 @@ def update_catalog_with_partitions(config_dict):
 				print "Partitions in configuration file do not match the number of nodes in catalog... Exiting"
 				sys.exit(1)
 			sql.append("UPDATE dtables SET partmtd = %d, partcol = \'%s\', partparam1 = %d, partparam2 = %d WHERE tname=\'%s\' AND nodeid = %d; " % (pm, pc, p1, p2, tablename, nodeid))
+	elif pm == 0:
+		for i in range(number_of_nodes):
+			sql.append("UPDATE dtables SET partmtd = %d, partcol = NULL, partparam1 = NULL, partparam2 = NULL WHERE tname=\'%s\' AND nodeid = %d; " % (int(pm), tablename, int(i) + 1))
 	try:
 		# connect and execute the sql statement
 		connection = pymysql.connect(host=cat_hn,
@@ -782,17 +785,19 @@ def join_tables(config_dict, connections, table1, table2, input_sql_query):
 			finally:
 				break
 
-	t = threading.Thread(target=move_table, args = (connections, localnodeid, table1, OrderedDictCursor, localnodecursor))
-	t.start()
+	# if using hash or range partition, then read from other nodes using threads...
+	if config_dict['node1.partmtd'] != 0:
+		t = threading.Thread(target=move_table, args = (connections, localnodeid, table1, OrderedDictCursor, localnodecursor))
+		t.start()
 
-	while threading.active_count() > 1:
-		time.sleep(1)
+		while threading.active_count() > 1:
+			time.sleep(1)
 
-	f = threading.Thread(target=move_table, args = (connections, localnodeid, table2, OrderedDictCursor, localnodecursor))
-	f.start()
+		f = threading.Thread(target=move_table, args = (connections, localnodeid, table2, OrderedDictCursor, localnodecursor))
+		f.start()
 
-	while threading.active_count() > 1:
-		time.sleep(1)
+		while threading.active_count() > 1:
+			time.sleep(1)
 
 	# use the original query on the new temporary tables
 	try:
@@ -833,6 +838,43 @@ def move_table(connections, localnodeid, input_table, OrderedDictCursor, localno
 			except pymysql.MySQLError as e:
 				print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}".format(e)
 
+
+def select_table(config_dict, connections, table1, input_sql_query):
+	#This function uses the config_dict, existing connections, and list of tables to join tables together
+	# identify the localnode which will have the temporary table and create the temp table
+	l_hn = config_dict['localnode.hostname']
+	l_db = config_dict['localnode.database']
+
+	for nodeid in range(1, config_dict["catalog.numnodes"]+1):
+		if (config_dict['node'+str(nodeid)+'.database']==l_db) and (config_dict['node'+str(nodeid)+'.hostname'] == l_hn):
+			localnodeid = nodeid
+			# print "The localnode is node " + str(localnodeid) + " that will coordinate work with other nodes..."
+			try:
+				localnodecursor = connections[localnodeid-1].cursor(OrderedDictCursor)
+				create_temp_sql = "CREATE TEMPORARY TABLE IF NOT EXISTS {0} AS (SELECT * FROM {1})".format(table1.upper(), table1.upper())
+				# print create_temp_sql
+				localnodecursor.execute(create_temp_sql.strip() + ';')
+				connections[localnodeid-1].commit()
+			except pymysql.MySQLError as e:
+				print e
+			finally:
+				break
+
+	t = threading.Thread(target=move_table, args = (connections, localnodeid, table1, OrderedDictCursor, localnodecursor))
+	t.start()
+
+	while threading.active_count() > 1:
+		time.sleep(1)
+
+	# use the original query on the new temporary table
+	try:
+		localnodecursor.execute(input_sql_query.strip() + ';')
+		d = localnodecursor.fetchall()
+		printTable(d)
+	except pymysql.MySQLError as e:
+		print e
+	finally:
+		localnodecursor.close()
 
 # somewhat based on http://stackoverflow.com/questions/17330139/python-printing-a-dictionary-as-a-horizontal-table-with-headers
 def printTable(myDict, colList=None):
@@ -959,15 +1001,14 @@ def main():
 
 			# If a join is deteched, then run join table method
 			if detect_join(sql_commands[0]):
-				# a join was detected
 				# if the partition method is range or hash, then run join
 				if (nodes_dict['node1.partmtd'] == 1 or nodes_dict['node1.partmtd'] == 2):
 					join_tables(nodes_dict, node_connections, table_list[0], table_list[1], sql_commands[0])
 				else:
-					print "TODO!!!! A NONPARTITION METHOD USED BUT JOIN WAS DETECTED!"
+					join_tables(nodes_dict, node_connections, table_list[0], table_list[1], sql_commands[0])
 			else:
 				# no join, no worries
-				run_commmands_against_nodes(node_connections, sql_commands)
+				select_table(nodes_dict, node_connections, table_list[0], sql_commands[0])
 
 
 if __name__ == "__main__":
