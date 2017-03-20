@@ -760,11 +760,15 @@ def detect_join(sql_statement):
 		return False
 
 
-def join_tables(config_dict, connections, table1, table2, input_sql_query):
+def join_tables(config_dict, connections, input_sql_query):
 	#This function uses the config_dict, existing connections, and list of tables to join tables together
 	# identify the localnode which will have the temporary table and create the temp table
 	l_hn = config_dict['localnode.hostname']
 	l_db = config_dict['localnode.database']
+
+	table_list = get_tables_real_names(input_sql_query)
+	table1 = table_list[0]
+	table2 = table_list[1]
 
 	for nodeid in range(1, config_dict["catalog.numnodes"]+1):
 		if (config_dict['node'+str(nodeid)+'.database']==l_db) and (config_dict['node'+str(nodeid)+'.hostname'] == l_hn):
@@ -839,11 +843,14 @@ def move_table(connections, localnodeid, input_table, OrderedDictCursor, localno
 				print "[JOB FAILED] <"+connection.host+ " - " + connection.db+ "> ERROR: {!r}".format(e)
 
 
-def select_table(config_dict, connections, table1, input_sql_query):
+def select_table(config_dict, connections, input_sql_query):
 	#This function uses the config_dict, existing connections, and list of tables to join tables together
 	# identify the localnode which will have the temporary table and create the temp table
 	l_hn = config_dict['localnode.hostname']
 	l_db = config_dict['localnode.database']
+
+	table_list = get_tables_real_names(input_sql_query)
+	table1 = table_list[0]
 
 	for nodeid in range(1, config_dict["catalog.numnodes"]+1):
 		if (config_dict['node'+str(nodeid)+'.database']==l_db) and (config_dict['node'+str(nodeid)+'.hostname'] == l_hn):
@@ -1003,14 +1010,16 @@ def main():
 
 			# If a join is deteched, then run join table method
 			if detect_join(sql_commands[0]):
-				# if the partition method is range or hash, then run join
-				if (nodes_dict['node1.partmtd'] == 1 or nodes_dict['node1.partmtd'] == 2):
-					join_tables(nodes_dict, node_connections, table_list[0], table_list[1], sql_commands[0])
-				else:
-					join_tables(nodes_dict, node_connections, table_list[0], table_list[1], sql_commands[0])
+				for command in sql_commands:
+					print "Results: "
+					join_tables(nodes_dict, node_connections, command)
+					print
 			else:
 				# no join, no worries
-				select_table(nodes_dict, node_connections, table_list[0], sql_commands[0])
+				for command in sql_commands:
+					print "Results: "
+					select_table(nodes_dict, node_connections, command)
+					print
 
 
 if __name__ == "__main__":
