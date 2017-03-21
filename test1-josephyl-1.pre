@@ -1,0 +1,13 @@
+#!/bin/bash
+echo "Creating database josephyl-test1 and Restaurant tables..."
+
+# create database
+mysqladmin -h localhost -uroot -pics421 create josephyltest1
+mysqladmin -h localhost -uroot -pics421 create josephyltest2
+mysqladmin -h localhost -uroot -pics421 create josephyltest3
+mysqladmin -h localhost -uroot -pics421 create josephyltest4
+python runSQL.py test1-josephyl-1.cfg test1-josephyl-1.sql
+# load CSV data into table
+python runSQL.py test1-josephyl-1-hash.cfg test1-josephyl-1.csv
+
+echo "Database and tables created!"

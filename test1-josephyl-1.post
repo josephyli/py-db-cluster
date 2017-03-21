@@ -1,0 +1,11 @@
+#!/bin/bash
+echo "Querying the database after the test for restaurants in Kaneohe"
+
+# query the database
+python runSQL.py test1-josephyl-1.cfg test1-josephyl-1.post.sql
+
+# grep
+
+
+echo "Finished"
+echo

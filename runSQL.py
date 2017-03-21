@@ -362,6 +362,8 @@ def get_loadcsv_config(configfilename):
 				config_dict['partition.column'] = cp.get('fakesection', 'partition.column')
 				config_dict['partition.param1'] = cp.getint('fakesection', 'partition.param1')
 				numnodes = getnumnodes(config_dict)
+				print numnodes
+				print config_dict['catalog.numnodes']
 				if numnodes != config_dict['partition.param1']:
 					print "Error! dtables's number of nodes does not match the partitioning. Exiting..."
 					sys.exit(1)
