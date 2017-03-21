@@ -1,1 +1,2 @@
 select authors.author, books.title from authors, books where authors.author=books.author;
+select authors.age, books.author from authors, books where authors.author=books.author;
