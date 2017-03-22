@@ -280,13 +280,17 @@ def get_runSQL_config(configfilename):
 
 def loadCSV(configfilename, csvfilename):
 	csv_list = []
-	with open(csvfilename, 'rb') as csvfile:
+	with open(csvfilename, 'rU') as csvfile:
 		dialect = csv.Sniffer().sniff(csvfile.read(), delimiters=',|;')
 		csvfile.seek(0)
 		reader = csv.reader(csvfile, dialect)
 
-		for row in reader:
-			csv_list.append(row)
+		try:
+			for row in reader:
+				csv_list.append(row)
+		except:
+			print row
+
 	return csv_list
 
 # returns a dict with all nodes information
@@ -361,9 +365,8 @@ def get_loadcsv_config(configfilename):
 				config_dict['catalog.numnodes'] = cp.getint('fakesection', 'partition.param1')
 				config_dict['partition.column'] = cp.get('fakesection', 'partition.column')
 				config_dict['partition.param1'] = cp.getint('fakesection', 'partition.param1')
-				numnodes = getnumnodes(config_dict)
-				print numnodes
-				print config_dict['catalog.numnodes']
+				numnodes = config_dict['partition.param1']
+				config_dict['catalog.numnodes'] = numnodes
 				if numnodes != config_dict['partition.param1']:
 					print "Error! dtables's number of nodes does not match the partitioning. Exiting..."
 					sys.exit(1)
@@ -577,14 +580,15 @@ def hash_insert(csv_list, node_connections, config_dict):
 
 	print "Index",partition_index,"of",columns,"is the partition column"
 
-	try:
-		# construct the sql_statement
-		values = ', '.join(["%s" for i in columns])
-		sql_statement = "INSERT INTO " + config_dict['catalog.tablename'].upper() + " VALUES ({a})".format(a=values)
-		args = ()
-
-		for i in range(len(csv_list)):
-			# convert each row into a tuple to be passed
+	# construct the sql_statement
+	values = ', '.join(["%s" for i in columns])
+	sql_statement = "INSERT INTO " + config_dict['catalog.tablename'].upper() + " VALUES ({a})".format(a=values)
+	args = ()
+	good_count = 0
+	bad_count = 0
+	for i in range(len(csv_list)):
+		# convert each row into a tuple to be passed
+		try:
 			args = tuple(csv_list[i])
 
 			nodeid = int(csv_list[i][partition_index]) % int(config_dict['catalog.numnodes'])
@@ -592,11 +596,12 @@ def hash_insert(csv_list, node_connections, config_dict):
 				cursor.execute(sql_statement, args)
 				res = cursor.fetchone()
 				node_connections[nodeid].commit()
-				print "data committed to node " + str(nodeid + 1)
-	except pymysql.MySQLError as e:
-		print e
-	finally:
-		cursor.close()
+				good_count += 1
+		except pymysql.MySQLError as e:
+			bad_count += 1
+	print "{0} rows to {1} were commited".format(good_count, config_dict['catalog.tablename'])
+	print "{0} rows were not committed".format(bad_count)
+	cursor.close()
 
 # reads metadata about the nodes from the catalog database
 # uses a list of tables that need to be created in the catalog to know what nodes are needed

@@ -1,5 +1,5 @@
 CREATE TABLE restaurants(
-   Establishment                     CHAR(76) NOT NULL PRIMARY KEY
+   Establishment                     CHAR(76) NOT NULL
   ,Permit_Holder                     CHAR(108)
   ,Telephone                         CHAR(13)
   ,Establishment_Permit_             INTEGER  NOT NULL

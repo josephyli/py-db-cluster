@@ -1,13 +1,25 @@
 #!/bin/bash
-echo "Creating database josephyl-test1 and Restaurant tables..."
+echo "Dropping databases josephyltest1,josephyltest2,josephyltest3,josephyltest4..."
 
-# create database
-mysqladmin -h localhost -uroot -pics421 create josephyltest1
-mysqladmin -h localhost -uroot -pics421 create josephyltest2
-mysqladmin -h localhost -uroot -pics421 create josephyltest3
-mysqladmin -h localhost -uroot -pics421 create josephyltest4
-python runSQL.py test1-josephyl-1.cfg test1-josephyl-1.sql
-# load CSV data into table
-python runSQL.py test1-josephyl-1-hash.cfg test1-josephyl-1.csv
+# drop databases
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest1 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest2 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest3 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest4 2>/dev/null
+
+# create databases
+echo "Creating databases..."
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest1 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest2 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest3 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest4 2>/dev/null
+echo "... Done"
+
+# create tables on databases
+# echo "Creating tables 'dtables' and 'restaurants'..."
+# mysql -uroot -pics421 -D josephyltest1 < test1-josephyl-1.pre.sql 2>/dev/null
+# mysql -uroot -pics421 -D josephyltest2 < test1-josephyl-2.pre.sql 2>/dev/null
+# mysql -uroot -pics421 -D josephyltest3 < test1-josephyl-2.pre.sql 2>/dev/null
+# mysql -uroot -pics421 -D josephyltest4 < test1-josephyl-2.pre.sql 2>/dev/null
 
 echo "Database and tables created!"
