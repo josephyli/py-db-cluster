@@ -2,10 +2,9 @@
 echo "Querying the database after the test for restaurants in Kaneohe"
 
 # query the database
-python runSQL.py test1-josephyl-1.cfg test1-josephyl-1.post.sql
-
-# grep
-
+mysql -uroot -pics421 josephyltest2 < test1-josephyl-1.post.1.sql
+mysql -uroot -pics421 josephyltest3 < test1-josephyl-1.post.1.sql
+mysql -uroot -pics421 josephyltest4 < test1-josephyl-1.post.1.sql
 
 echo "Finished"
 echo
