@@ -578,7 +578,7 @@ def hash_insert(csv_list, node_connections, config_dict):
 			break
 		partition_index += 1
 
-	print "Index",partition_index,"of",columns,"is the partition column"
+	# print "Index",partition_index,"of",columns,"is the partition column"
 
 	# construct the sql_statement
 	values = ', '.join(["%s" for i in columns])
@@ -598,6 +598,7 @@ def hash_insert(csv_list, node_connections, config_dict):
 				node_connections[nodeid].commit()
 				good_count += 1
 		except pymysql.MySQLError as e:
+			print e
 			bad_count += 1
 	print "{0} rows to {1} were commited".format(good_count, config_dict['catalog.tablename'])
 	print "{0} rows were not committed".format(bad_count)
@@ -946,9 +947,9 @@ def main():
 			print "Terminating due to connection failures..."
 			sys.exit()
 		print
-		for c in node_connections:
-			print "HOST: " + c.host + " DB: " + c.db + " " + str(c)
-		print
+		# for c in node_connections:
+			# print "HOST: " + c.host + " DB: " + c.db + " " + str(c)
+		# print
 		print "-" * 80
 		print
 
@@ -973,7 +974,7 @@ def main():
 		# run SQL
 		# read configuration and return a dictionary -------------------------------
 		temp = "PARSING " + str(args.configfile) + "..."
-		print
+		# print
 		# print temp.center(80, " ")
 		config_dict = get_runSQL_config(args.configfile)
 
@@ -984,32 +985,32 @@ def main():
 		table_list = []
 
 		if sql_commands[0].split()[0].upper() == "CREATE":
-			print "CREATE TABLE DETECTED IN DDL... UPDATING CATALOG WITH NEW TABLES...".center(80, " ")
+			# print "CREATE TABLE DETECTED IN DDL... UPDATING CATALOG WITH NEW TABLES...".center(80, " ")
 			for command in sql_commands:
 				if command.split()[0].upper() == "CREATE":
 					table_list.append((re.split('\s|\(',command)[2]))
 			node_connections = get_connections(config_dict)
-			print table_list
+			# print table_list
 			update_DDL_catalog(config_dict,table_list)
 			run_commmands_against_nodes(node_connections, sql_commands)
 		else:
 			table_list = get_tables_real_names(sql_commands[0])
-			print
-			print "-" * 80
-			print
+			# print
+			# print "-" * 80
+			# print
 
 			# read catalog for a list of node -----------------------------------
-			print "READING CATALOG...".center(80, " ")
-			print
+			# print "READING CATALOG...".center(80, " ")
+			# print
 			nodes_dict = read_catalog(config_dict, table_list)
 			# print_pretty_dict(nodes_dict)
-			print
-			print "-" * 80
-			print
+			# print
+			# print "-" * 80
+			# print
 
 			# run the commands against the nodes ---------------------------------------
-			print "EXECUTING SQL COMMANDS ON NODES...".center(80, " ")
-			print
+			# print "EXECUTING SQL COMMANDS ON NODES...".center(80, " ")
+			# print
 			node_connections = get_connections(nodes_dict)
 			if len(node_connections) == 0:
 				print "Terminating due to connection failures..."
@@ -1018,15 +1019,15 @@ def main():
 			# If a join is deteched, then run join table method
 			if detect_join(sql_commands[0]):
 				for command in sql_commands:
-					print "Results: "
+					# print "Results: "
 					join_tables(nodes_dict, node_connections, command)
-					print
+					# print
 			else:
 				# no join, no worries
 				for command in sql_commands:
-					print "Results: "
+					# print "Results: "
 					select_table(nodes_dict, node_connections, command)
-					print
+					# print
 
 
 if __name__ == "__main__":

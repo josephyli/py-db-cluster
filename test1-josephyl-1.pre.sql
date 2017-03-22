@@ -25,6 +25,5 @@ CREATE TABLE restaurants(
   ,TMKZone                           INTEGER 
   ,TMKSection                        INTEGER 
   ,TMKPlat                           INTEGER 
-  ,TMKParcel                         INTEGER 
   ,Permit_Expire_Date                CHAR(23)
 );
