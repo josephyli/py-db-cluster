@@ -893,18 +893,18 @@ def select_table(config_dict, connections, input_sql_query):
 		localnodecursor.close()
 
 # somewhat based on http://stackoverflow.com/questions/17330139/python-printing-a-dictionary-as-a-horizontal-table-with-headers
-def printTable(myDict, colList=None):
+def printTable(myDict):
 	some_lock = threading.Lock()
 	with some_lock:
-		if not colList:
-			colList = list(myDict[0].keys() if myDict else [])
-		myList = []
-		for item in myDict:
-			myList.append([str(item[col] or '') for col in colList])
-		colSize = [max(map(len,col)) for col in zip(*myList)]
-		formatStr = ' '.join(["{{:<{}}}".format(i+5) for i in colSize])
-		# myList.insert(1, ['-' * i for i in colSize]) # Seperating line
-		for item in myList: print(formatStr.format(*item))
+		for e in myDict:
+			ret = ""
+			for key, value in e.items():
+				ret += str(value)
+				ret += "|"
+			print ret[:-1]
+
+def printTable2(input_dict):
+	print input_dict
 
 def print_pretty_dict(idict):
 	import json
