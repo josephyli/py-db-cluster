@@ -149,7 +149,7 @@ Run the runDDL.py script.
 The input to runDDL consists of two filenames (stored in variables clustercfg and ddlfile) passed in as command line arguments:
 
 ```bash
-python cluster.py clustercfg ddlfile
+$ python runSQL.py clustercfg ddlfile
 ```
 
 The runDDL program will execute the same DDL on the database instance of each of the computers on the cluster concurrently using threads.
@@ -157,7 +157,7 @@ One thread is spawned for each connection in the cluster.
 Here is an example of the output:
 
 ```bash
-> python runDDL.py clustercfg ddlfile
+$ python runSQL.py clustercfg ddlfile
 
 ================================================================================
 
@@ -257,7 +257,6 @@ This operation is not multi-threaded.
 
 3. Loading Data
 
-Another script *loadCSV.py* is provided to assist in loading data into the database.
 As mentioned previously, depending on the desired partition type, the data will be loaded into the cluster differently.
 Supply the correct config file as the first command line argument and the comma separated value text file as the second argument.
 
@@ -273,10 +272,10 @@ An example csv file might look like:
 982325410,"Master of All","Lau, Gerald"
 ```
 
-loadCSV.py output might look something like this:
+runSQL.py output might look something like this:
 
 ```bash
-> python loadCSV.py clustercfghash books.csv
+$ python loadCSV.py clustercfghash books.csv
                              READING CONFIG FILE...
 
 Loading the CSV based hash partitioning
@@ -329,7 +328,7 @@ FROM BOOKS;
 And the resulting output might look something like this:
 
 ```bash
-> python runSQL.py clustercfghash sqlfile
+$ python runSQL.py clustercfghash sqlfile
 
 ================================================================================
 
@@ -410,6 +409,52 @@ HOST: 127.0.0.1 DB: josephyl3 <pymysql.connections.Connection object at 0x103898
 [JOB SUCCESSFUL] <127.0.0.1 - josephyl2>
 
 ================================================================================
+
+The project also supports parallel join algorithms ie. select-from-where queries involving joins between exactly two tables.
+The two tables to be joined may be distributed tables with fragments residing on multiple nodes.
+The input to runSQL consists of two filenames (stored in variables clustercfg and sqlfile) passed in as commandline arguments.
+The join query is executed on multiple threads.
+
+At this point, there is only support for SQL queries on at most two tables and queries that do not contain any nested subqueries.
+Only equi-joins are supported.
+
+Output for an equi-join query would look like:
+
+```bash
+run3.sh clustercfg sqlfile_authors
+
+
+--------------------------------------------------------------------------------
+
+                               READING CATALOG...
+
+
+--------------------------------------------------------------------------------
+
+                       EXECUTING SQL COMMANDS ON NODES...
+
+Results:
+Ramakrishnan,Raghu|Database Systems
+Li, Joe|Coffee Explained
+Kelly, Charlie|Nightman Cometh
+Bing, Chandler|Could I be any funnier
+Lau, Gerald|Master of All
+Silberstein, Adam|Operating Systems
+Nakamura, Clay|I Need Help
+Schrute, Dwight|You Me and Beets
+Dong, Ding|Sounds you love
+
+Results:
+(1137, u"Can't reopen table: 'AUTHORS'")
+40|Silberstein, Adam
+12|Nakamura, Clay
+18|Dong, Ding
+23|Ramakrishnan,Raghu
+99|Li, Joe
+37|Schrute, Dwight
+21|Bing, Chandler
+21|Bing, Chandler
+43|Lau, Gerald
 ```
 
 ## Contributions and Formatting
