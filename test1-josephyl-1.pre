@@ -18,8 +18,8 @@ echo "... Done"
 # create tables on databases
 # echo "Creating tables 'dtables' and 'restaurants'..."
 # mysql -uroot -pics421 -D josephyltest1 < test1-josephyl-1.pre.sql 2>/dev/null
-# mysql -uroot -pics421 -D josephyltest2 < test1-josephyl-2.pre.sql 2>/dev/null
-# mysql -uroot -pics421 -D josephyltest3 < test1-josephyl-2.pre.sql 2>/dev/null
-# mysql -uroot -pics421 -D josephyltest4 < test1-josephyl-2.pre.sql 2>/dev/null
+mysql -uroot -pics421 -D josephyltest2 < test1-josephyl-1.pre.sql 2>/dev/null
+mysql -uroot -pics421 -D josephyltest3 < test1-josephyl-1.pre.sql 2>/dev/null
+mysql -uroot -pics421 -D josephyltest4 < test1-josephyl-1.pre.sql 2>/dev/null
 
 echo "Database and tables created!"
