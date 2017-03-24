@@ -1,1 +1,1 @@
-select sailors.sid, reserves.bid, reserves.day from sailors, reserves where sailors.sid=reserves.sid;
+select s.sid, s.age, r.bid from sailors s, reserves r where s.sid = r.sid;

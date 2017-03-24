@@ -2,9 +2,9 @@
 
 
 echo
-echo "~ selecting from database"
+echo "~ test 1: "
 mysql -uroot -pics421 -D josephyltest4_2 < test4-josephyl-1.post.1.sql
 
 echo
-echo "~ selecting from database"
+echo "~ test 1: "
 mysql -uroot -pics421 -D josephyltest4_3 < test4-josephyl-1.post.1.sql

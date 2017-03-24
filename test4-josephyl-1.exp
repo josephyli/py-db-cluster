@@ -1,5 +1,5 @@
 
-~ selecting from database
+~ test 1: 
 sid	bid	day
 1	1	2016-06-16
 1	1	1959-08-14
@@ -14,7 +14,7 @@ sid	bid	day
 5	4	2004-10-07
 5	5	2010-05-06
 
-~ selecting from database
+~ test 1: 
 sid	bid	day
 1	1	2016-06-16
 1	1	1959-08-14

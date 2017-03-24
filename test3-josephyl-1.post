@@ -1,7 +1,7 @@
 #!/bin/bash
 # query the database
-mysql -uroot -pics421 josephyltest2 < test1-josephyl-1.post.1.sql 
-mysql -uroot -pics421 josephyltest3 < test1-josephyl-1.post.1.sql 
+mysql -uroot -pics421 josephyltest3_2 < test3-josephyl-1.post.1.sql 
+mysql -uroot -pics421 josephyltest3_3 < test3-josephyl-1.post.1.sql 
 
 # echo "Finished"
 # echo
