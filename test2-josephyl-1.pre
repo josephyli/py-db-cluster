@@ -1,0 +1,22 @@
+#!/bin/bash
+echo "Dropping databases ..."
+
+# drop databases
+mysqladmin -f -uroot -pics421 drop josephyltest2_1 2>/dev/null
+mysqladmin -f -uroot -pics421 drop josephyltest2_2 2>/dev/null
+mysqladmin -f -uroot -pics421 drop josephyltest2_3 2>/dev/null
+
+# create databases
+echo "Creating databases..."
+mysqladmin -f -uroot -pics421 create josephyltest2_1 2>/dev/null
+mysqladmin -f -uroot -pics421 create josephyltest2_2 2>/dev/null
+mysqladmin -f -uroot -pics421 create josephyltest2_3 2>/dev/null
+echo "... Done"
+
+#create tables on databases
+echo "Creating table 'restaurants'..."
+mysql -uroot -pics421 -D josephyltest2_1 < test2-josephyl-1.pre.1.sql
+mysql -uroot -pics421 -D josephyltest2_2 < test2-josephyl-1.pre.2.sql
+mysql -uroot -pics421 -D josephyltest2_3 < test2-josephyl-1.pre.2.sql
+
+echo "Database and tables created!"

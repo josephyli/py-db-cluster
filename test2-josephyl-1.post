@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# query the database
+mysql -uroot -pics421 josephyltest2_2 < test2-josephyl-1.post.1.sql
+mysql -uroot -pics421 josephyltest2_3 < test2-josephyl-1.post.1.sql
+

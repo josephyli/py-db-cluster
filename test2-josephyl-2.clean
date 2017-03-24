@@ -1,9 +1,0 @@
-#!/bin/bash
-echo "Dropping the test databases after the test"
-
-mysqladmin -h localhost -uroot -pics421 drop josephyltest1
-mysqladmin -h localhost -uroot -pics421 drop josephyltest2
-mysqladmin -h localhost -uroot -pics421 drop josephyltest3
-
-echo "Finished"
-echo

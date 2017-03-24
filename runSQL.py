@@ -586,6 +586,7 @@ def hash_insert(csv_list, node_connections, config_dict):
 	# construct the sql_statement
 	values = ', '.join(["%s" for i in columns])
 	sql_statement = "INSERT INTO " + config_dict['catalog.tablename'].upper() + " VALUES ({a})".format(a=values)
+
 	args = ()
 	good_count = 0
 	bad_count = 0
@@ -595,11 +596,14 @@ def hash_insert(csv_list, node_connections, config_dict):
 			args = tuple(csv_list[i])
 
 			nodeid = int(csv_list[i][partition_index]) % int(config_dict['catalog.numnodes'])
-			with node_connections[nodeid].cursor() as cursor:
-				cursor.execute(sql_statement, args)
-				res = cursor.fetchone()
-				node_connections[nodeid].commit()
-				good_count += 1
+			try :
+				with node_connections[nodeid].cursor() as cursor:
+					cursor.execute(sql_statement, args)
+					res = cursor.fetchone()
+					node_connections[nodeid].commit()
+					good_count += 1
+			except pymysql.MySQLError as e:
+				print e
 		except Exception:
 			bad_count += 1
 	print "{0} rows to {1} were commited".format(good_count, config_dict['catalog.tablename'])
