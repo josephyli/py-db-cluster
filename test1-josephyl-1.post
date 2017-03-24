@@ -1,10 +1,18 @@
 #!/bin/bash
-echo "Querying the database after the test for restaurants in Kaneohe"
+echo "~ Selecting from dtables..."
+mysql -uroot -pics421 -D josephyltest1_1 < test1-josephyl-1.post.1.sql
 
-# query the database
-mysql -uroot -pics421 josephyltest2 < test1-josephyl-1.post.1.sql
-mysql -uroot -pics421 josephyltest3 < test1-josephyl-1.post.1.sql
-mysql -uroot -pics421 josephyltest4 < test1-josephyl-1.post.1.sql
-
-echo "Finished"
 echo
+echo "~ Describing Sailors in josephyltest1_2..."
+mysql -uroot -pics421 -D josephyltest1_2 < test1-josephyl-1.post.2.sql
+
+echo
+echo "~ Describing Sailors in josephyltest1_3..."
+mysql -uroot -pics421 -D josephyltest1_3 < test1-josephyl-1.post.2.sql
+
+echo
+echo "~ Describing Sailors in josephyltest1_4..."
+mysql -uroot -pics421 -D josephyltest1_4 < test1-josephyl-1.post.2.sql
+
+echo "~ Describing Sailors in josephyltest1_5..."
+mysql -uroot -pics421 -D josephyltest1_5 < test1-josephyl-1.post.2.sql

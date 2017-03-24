@@ -1,0 +1,15 @@
+
+1	40	1
+1	40	1
+2	26	1
+2	26	4
+3	24	2
+3	24	2
+3	24	2
+5	420	1
+5	420	2
+5	420	3
+5	420	4
+5	420	5
+sid	age	bid
+~ test 1 ran on one of the mirrored partitions: 

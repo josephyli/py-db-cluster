@@ -1,25 +1,21 @@
 #!/bin/bash
-echo "Dropping databases josephyltest1,josephyltest2,josephyltest3,josephyltest4..."
+echo "Dropping databases then recreating them..."
 
 # drop databases
-mysqladmin -f -h localhost -uroot -pics421 drop josephyltest1 2>/dev/null
-mysqladmin -f -h localhost -uroot -pics421 drop josephyltest2 2>/dev/null
-mysqladmin -f -h localhost -uroot -pics421 drop josephyltest3 2>/dev/null
-mysqladmin -f -h localhost -uroot -pics421 drop josephyltest4 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest1_1 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest1_2 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest1_3 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest1_4 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest1_5 2>/dev/null
 
 # create databases
 echo "Creating databases..."
-mysqladmin -f -h localhost -uroot -pics421 create josephyltest1 2>/dev/null
-mysqladmin -f -h localhost -uroot -pics421 create josephyltest2 2>/dev/null
-mysqladmin -f -h localhost -uroot -pics421 create josephyltest3 2>/dev/null
-mysqladmin -f -h localhost -uroot -pics421 create josephyltest4 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest1_1 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest1_2 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest1_3 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest1_4 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest1_5 2>/dev/null
+
 echo "... Done"
 
-# create tables on databases
-# echo "Creating tables 'dtables' and 'restaurants'..."
-# mysql -uroot -pics421 -D josephyltest1 < test1-josephyl-1.pre.sql 2>/dev/null
-# mysql -uroot -pics421 -D josephyltest2 < test1-josephyl-2.pre.sql 2>/dev/null
-# mysql -uroot -pics421 -D josephyltest3 < test1-josephyl-2.pre.sql 2>/dev/null
-# mysql -uroot -pics421 -D josephyltest4 < test1-josephyl-2.pre.sql 2>/dev/null
-
-echo "Database and tables created!"
+echo "Database created!"
