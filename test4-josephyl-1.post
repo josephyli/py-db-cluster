@@ -2,9 +2,5 @@
 
 
 echo
-echo "~ test 1: "
+echo "~ test 1 ran on one of the mirrored partitions: "
 mysql -uroot -pics421 -D josephyltest4_2 < test4-josephyl-1.post.1.sql
-
-echo
-echo "~ test 1: "
-mysql -uroot -pics421 -D josephyltest4_3 < test4-josephyl-1.post.1.sql
