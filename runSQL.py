@@ -163,11 +163,14 @@ def get_tables_real_names(sql_command):
 			break
 	idenlist_index += 1
 	iden_list = []
-	for i in str(token_list[idenlist_index]).split(","):
-		temp = i.lstrip()
-		temp = temp.rstrip()
-		t2 = temp.split(" ")[0]
-		iden_list.append(t2)
+	try:
+		for i in str(token_list[idenlist_index]).split(","):
+			temp = i.lstrip()
+			temp = temp.rstrip()
+			t2 = temp.split(" ")[0]
+			iden_list.append(t2)
+	except Exception as e:
+		return list(str(token_list[0]))
 	return iden_list
 
 # ------- parsing table code-------------------------------------------------
@@ -276,7 +279,7 @@ def get_runSQL_config(configfilename):
 			return config_dict
 	else:
 		print("No config file found at", configfilename)
-		return null
+		return None
 
 def loadCSV(configfilename, csvfilename):
 	csv_list = []
@@ -597,7 +600,7 @@ def hash_insert(csv_list, node_connections, config_dict):
 				res = cursor.fetchone()
 				node_connections[nodeid].commit()
 				good_count += 1
-		except pymysql.MySQLError as e:
+		except Exception:
 			bad_count += 1
 	print "{0} rows to {1} were commited".format(good_count, config_dict['catalog.tablename'])
 	print "{0} rows were not committed".format(bad_count)

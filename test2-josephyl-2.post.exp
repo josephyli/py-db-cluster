@@ -1,0 +1,29 @@
+
+
+
+
+
+
+
+
+
+
+
+
+                              UPDATING CATALOG...                               
+                             READING CONFIG FILE...                             
+                            CREATING CONNECTIONS...                             
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+107 rows were not committed
+5988 rows to restaurants were commited
+Finished
+HOST: 127.0.0.1 DB: josephyl2 <pymysql.connections.Connection object at 0x103bf9f10>
+HOST: 127.0.0.1 DB: josephyl3 <pymysql.connections.Connection object at 0x103bded10>
+Index 15 of [u'Establishment', u'Permit_Holder', u'Telephone', u'Establishment_Permit_', u'Establishment_Address_Street_', u'Establishment_Address_Street_Name', u'Establishment_Address_Unit_', u'Establishment_Address_City', u'Establishment_Address_State', u'Establishment_Address_Zip_Code', u'Mailing_Address_Street_', u'Mailing_Address_Street_Name', u'Mailing_Address_Unit_', u'Mailing_Address_City', u'Mailing_Address_State', u'Mailing_Address_Zip_Code', u'Mailing_Care_Of', u'PO_BOX', u'Facility_Permit_', u'Business_Status', u'Facility_Type', u'Risk_Category', u'1st_Inspection', u'TMKZone', u'TMKSection', u'TMKPlat', u'TMKParcel', u'Permit_Expire_Date'] is the partition column
+Loading Data into database
+Loading the CSV based hash partitioning
+THE NUMBER OF NODES IS 2
+Using Hash Partitioning as Partitioning Method...
+["UPDATE dtables SET partmtd = 2, partcol = 'Mailing_Address_Zip_Code', partparam1 = 2, partparam2 = 'NULL' WHERE tname='restaurants' AND nodeid = 1; ", "UPDATE dtables SET partmtd = 2, partcol = 'Mailing_Address_Zip_Code', partparam1 = 2, partparam2 = 'NULL' WHERE tname='restaurants' AND nodeid = 2; "]

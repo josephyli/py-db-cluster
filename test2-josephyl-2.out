@@ -1,0 +1,43 @@
+
+
+
+
+
+
+
+
+                            CREATING CONNECTIONS...                             
+                        PARSING test2-josephyl-2.cfg...                         
+   database: josephyltest4_2
+   database: josephyltest4_3
+   hostname: 127.0.0.1
+   hostname: 127.0.0.1
+   password: mypasswd
+   password: mypasswd
+   username: db2inst1
+   username: db2inst1
+ "catalog.database": "josephyltest4_1", 
+ "catalog.driver": "com.mysql.jdbc.Drive", 
+ "catalog.hostname": "jdbc:mysql://127.0.0.1:3306/josephyltest4_1", 
+ "catalog.numnodes": 2
+ "catalog.passwd": "mypasswd", 
+ "catalog.username": "db2inst1", 
+ "node1.database": "josephyltest4_2", 
+ "node1.driver": "com.mysql.jdbc.Drive", 
+ "node1.hostname": "jdbc:mysql://127.0.0.1:3306/josephyltest4_2", 
+ "node1.passwd": "mypasswd", 
+ "node1.username": "db2inst1", 
+ "node2.database": "josephyltest4_3", 
+ "node2.driver": "com.mysql.jdbc.Drive", 
+ "node2.hostname": "jdbc:mysql://127.0.0.1:3306/josephyltest4_3", 
+ "node2.passwd": "mypasswd", 
+ "node2.username": "db2inst1", 
+--------------------------------------------------------------------------------
+================================================================================
+Got error InternalError(1049, u"Unknown database 'josephyltest4_2'"), errno is 1049
+Got error InternalError(1049, u"Unknown database 'josephyltest4_3'"), errno is 1049
+Terminating due to connection failures...
+[NODE 1 CONNECTION FAILED]:
+[NODE 2 CONNECTION FAILED]:
+{
+}
