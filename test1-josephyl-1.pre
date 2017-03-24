@@ -1,0 +1,21 @@
+#!/bin/bash
+echo "Dropping databases then recreating them..."
+
+# drop databases
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest1_1 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest1_2 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest1_3 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest1_4 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest1_5 2>/dev/null
+
+# create databases
+echo "Creating databases..."
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest1_1 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest1_2 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest1_3 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest1_4 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest1_5 2>/dev/null
+
+echo "... Done"
+
+echo "Database created!"

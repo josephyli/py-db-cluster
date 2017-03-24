@@ -1,0 +1,33 @@
+#!/bin/bash
+echo "Dropping databases then recreating them..."
+
+# drop databases
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest4_1 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest4_2 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 drop josephyltest4_3 2>/dev/null
+
+# create databases
+echo "Creating databases..."
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest4_1 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest4_2 2>/dev/null
+mysqladmin -f -h localhost -uroot -pics421 create josephyltest4_3 2>/dev/null
+
+echo "... Done"
+
+echo "Database created!"
+
+echo
+echo "Creating dtables"
+mysql -uroot -pics421 -D josephyltest4_1 < test4-josephyl-1.pre.1.sql 2>/dev/null
+
+echo
+echo "Creating table Sailors"
+mysql -uroot -pics421 -D josephyltest4_2 < test4-josephyl-1.pre.2.sql 2>/dev/null
+mysql -uroot -pics421 -D josephyltest4_3 < test4-josephyl-1.pre.2.sql 2>/dev/null
+
+echo
+echo "Creating table Reserves"
+mysql -uroot -pics421 -D josephyltest4_2 < test4-josephyl-1.pre.3.sql 2>/dev/null
+mysql -uroot -pics421 -D josephyltest4_3 < test4-josephyl-1.pre.3.sql 2>/dev/null
+
+echo "...Done!"

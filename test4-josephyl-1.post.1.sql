@@ -1,0 +1,1 @@
+select sailors.sid, reserves.bid, reserves.day from sailors, reserves where sailors.sid=reserves.sid ;

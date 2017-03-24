@@ -1,0 +1,39 @@
+~ Selecting from dtables...
+Field	Type	Null	Key	Default	Extra
+tname	char(32)	YES		NULL	
+nodedriver	char(64)	YES		NULL	
+nodeurl	char(128)	YES		NULL	
+nodeuser	char(16)	YES		NULL	
+nodepasswd	char(16)	YES		NULL	
+partmtd	int(11)	YES		NULL	
+nodeid	int(11)	YES		NULL	
+partcol	char(32)	YES		NULL	
+partparam1	char(32)	YES		NULL	
+partparam2	char(32)	YES		NULL	
+
+~ Describing Sailors in josephyltest1_2...
+Field	Type	Null	Key	Default	Extra
+sid	int(11)	NO	PRI	NULL	
+name	varchar(100)	YES		NULL	
+rating	int(11)	YES		NULL	
+age	int(11)	YES		NULL	
+
+~ Describing Sailors in josephyltest1_3...
+Field	Type	Null	Key	Default	Extra
+sid	int(11)	NO	PRI	NULL	
+name	varchar(100)	YES		NULL	
+rating	int(11)	YES		NULL	
+age	int(11)	YES		NULL	
+
+~ Describing Sailors in josephyltest1_4...
+Field	Type	Null	Key	Default	Extra
+sid	int(11)	NO	PRI	NULL	
+name	varchar(100)	YES		NULL	
+rating	int(11)	YES		NULL	
+age	int(11)	YES		NULL	
+~ Describing Sailors in josephyltest1_5...
+Field	Type	Null	Key	Default	Extra
+sid	int(11)	NO	PRI	NULL	
+name	varchar(100)	YES		NULL	
+rating	int(11)	YES		NULL	
+age	int(11)	YES		NULL	
